@@ -1,0 +1,901 @@
+\documentclass{article}
+\usepackage{graphicx}
+\DeclareGraphicsExtensions{.pdf}
+
+\usepackage[final]{pdfpages}
+
+\headheight 0in
+\oddsidemargin 0in
+\evensidemargin  0in
+\topmargin  -.25in
+\textwidth 6.5in
+\textheight 9in
+\title{OMPD: An Application Programming Interface for a Debugger Support Library for OpenMP\textsuperscript{\textregistered}}
+\author{Alexandre Eichenberger\thanks{IBM T.J. Watson Research Center}, 
+John Mellor-Crummey\thanks{Rice University}, 
+Martin Schulz\thanks{Lawrence Livermore National Laboratory},
+\\~\\
+Nawal Copty\thanks{Oracle}, 
+Jim Cownie\thanks{Intel},
+% John DelSignore\thanks{Rogue Wave}, 
+Robert Dietrich\thanks{TU Dresden, ZIH},
+John Del Signore\thanks{Rogue Wave},
+Eugene Loh\hbox to 0in{$^\S$\hss}, 
+Daniel Lorenz\thanks{J\"{u}lich Supercomputer Center}, 
+\\
+and other members of the OpenMP Tools Working Group}
+\date{March 21, 2014}
+
+\usepackage{comment}
+\usepackage{needspace}
+\usepackage[colorlinks=true,citecolor=blue]{hyper ref}
+\usepackage{url}
+\usepackage{xcolor}
+
+\newcommand{\descheader}[1]{{\needspace{3\baselineskip}\vspace{1em}\noindent \fbox{#1}}}
+
+
+\begin{document}     
+\pagestyle{plain}
+                                           
+\maketitle
+
+\begin{comment}
+\section{Introduction}
+Today, it is difficult to produce high quality tools that support debugging of OpenMP programs without tightly integrating them with a specific OpenMP runtime implementation. To address this problem, this document defines 
+OMPD---an application programming interface (API) for an optional shared-library plugin that will enable debuggers  to inspect and control executions of OpenMP programs. 
+OMPD provides third-party variants  of OMPT---an emerging OpenMP performance tools application programming interface to enable assembly of user-level views of thread call stacks by debuggers.
+Extending the OpenMP standard with this API  will make it possible to construct powerful debugging tools that will support any standard-compliant OpenMP implementation.
+
+\subsection{Document Roadmap}
+Section~\ref{sec:globals} describes a global variable provided by the OpenMP runtime to support the OMPD debugger plug in library, which is being developed separately.
+Next, a pair of appendices describe OMPD---a shared library plugin for debuggers that supports third-party inspection and control of a target process. OMPD enables a debugger to leverage functionality provided by OMPT to enable it to provide a user-level view of call stacks for threads.
+Appendix~\ref{appendix:ompd} describes the OMPD interface.  
+Appendix~\ref{appendix:ompd-types} provides a definition of the complete OMPD interface in C.
+
+\section{OpenMP Runtime Library Global Variables}
+\label{sec:globals}
+
+A common idiom has emerged to support the manipulation of a programming abstraction by debuggers: the programming abstraction provides a plugin library that the debugger  loads into its own address space. The debugger then uses an API provided by the plugin library to inspect and manipulate state associated with the programming abstraction in a target. The target may be a live process or a core file. Such plugin libraries have been defined to support debugging of threads~\cite{libthreaddb} and MPI~\cite{CownieGropp99}. A 2003 paper describes a previous effort to define a debugging support library for OpenMP~\cite{Cownie:2003:DOD:1761900.1761915}. 
+
+For OpenMP, we are separately developing a standard for OMPD---a shared library that will serve as a debugger plugin. 
+
+
+\section{OMPD: A Debugger Support Library}
+\label{appendix:ompd}
+\end{comment}
+
+\section{Introduction}
+
+A common idiom has emerged to support the manipulation of a programming abstraction by debuggers: the programming abstraction provides a plugin library that the debugger  loads into its own address space. The debugger then uses an API provided by the plugin library to inspect and manipulate state associated with the programming abstraction in a target. The target may be a live process or a core file. Such plugin libraries have been defined to support debugging of threads~\cite{libthreaddb} and MPI~\cite{CownieGropp99}. A 2003 paper describes a previous effort to define a debugging support library for OpenMP~\cite{Cownie:2003:DOD:1761900.1761915}.
+
+Here, we define OMPD, a shared library companion to an OpenMP runtime system 
+that a debugger can load to help interpret the state of the runtime in a live process or a core file.  
+
+
+\subsection{Design Objectives}
+
+The design for OMPD tries to satisfy several design objectives for a performance tool interface for OpenMP. These objectives are listed in decreasing order of importance.
+
+\begin{itemize}
+\item The API should enable a debugger to inspect the state of a live process or a core file.
+\begin{itemize}
+\item The API should provide the debugger with third-party versions of the OpenMP runtime inquiry functions. 
+\item The API should provide the debugger with third-party versions of the OMPT inquiry functions.
+\end{itemize}
+\item The API should facilitate interactive control of a live process in the following ways:
+\begin{itemize}
+\item Help a debugger place breakpoints to intercept the beginning and end of parallel regions and task regions.
+\item Help a debugger identify the first program instruction that the OpenMP runtime will execute in a parallel region or a task region so that it can set breakpoints inside the regions.
+\end{itemize}
+\item Adding the API to an OpenMP implementation must not impose an unreasonable development burden on implementer.
+\item The API should not impose an unreasonable development burden on tool implementers.
+\end{itemize}
+
+%\begin{comment}
+%libthread_db(3THR) is the debug library to the thread library:
+%http://docs.oracle.com/cd/E19455-01/806-0630/6j9vkb8dk/index.html
+
+%proc_service(3PROC) describes the callback interface used by libthread_db:
+%http://docs.oracle.com/cd/E19455-01/806-0630/6j9vkb8e9/index.html
+%\end{comment}
+
+
+
+
+
+
+An OpenMP runtime system will provide a shared library that a debugger can load to help interpret the state of the runtime in a live process or a core file.
+
+\sloppy
+If tool support has been enabled, the OpenMP runtime system will maintain
+information about the state of each OpenMP thread. This includes
+\verb|ompt_state_t|, \verb|ompt_wait_id_t|, \verb|ompt_frame_t|, \verb|ompt_task_id_t|, and \verb|ompt_parallel_id_t| data structures.
+
+
+
+
+
+\section{OpenMP Runtime Interface}
+
+As part of the OpenMP interface, we simply require that 
+ the OpenMP runtime system provides a public variable \verb|ompd_dll_locations|, which is an argv-style array of filename strings that provides the location(s) of any compatible OMPD plugin implementations (if any).
+
+\begin{quote}
+\begin{verbatim}
+_OMP_EXTERN  const char * * ompd_dll_locations;
+\end{verbatim}
+\end{quote}
+
+\noindent
+The value of \verb|ompd_dll_locations| may be NULL initially, but must be filled in before \verb|ompt_initialize| is called. After that, \verb|ompd_dll_locations|  will point to a vector of zero or more NULL-terminated pathname strings. There are no filename conventions for pathname strings. The last entry in the vector will be NULL. 
+
+If OMPT runtime state tracking has been enabled for a runtime~\cite{ompt-tr2}, the OpenMP runtime system will maintain 
+information about the state of each OpenMP thread that will be available to an OMPD plugin, including the following types of information:
+\verb|ompt_state_t|, \verb|ompt_wait_id_t|, \verb|ompt_frame_t|, \verb|ompt_task_id_t|, and \verb|ompt_parallel_id_t| data structures.
+
+
+
+
+\section{Initialization}
+
+The OMPD debugger support library needs the debugger to provide a set of callback functions that enable  OMPD to manage memory in the debugger address space, look up sizes for primitive types in the target,  to look up symbols in the target, query information about structures in the target, as well as read/write memory in the target.  The OMPD library invokes the function \verb|ompd_initialize|, passing a pointer to a \verb|ompd_callbacks_t| structure that the debugger will initialize for OMPD. The signature for the function is shown below. 
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_initialize(
+  ompd_callbacks_t *data
+);
+\end{verbatim}
+\end{quote}
+
+
+\noindent
+The OMPD library may call \verb|ompd_initialize| in a library initialization constructor.
+The type \verb|ompd_target_t| is defined in Appendix~\ref{sec:ompd_data_types}. 
+
+
+\section{Handle Management}
+
+Each OMPD call that is dependent on some context must provide this
+context via a handle. There are handles for threads, parallel
+regions, and tasks. Handles are guaranteed to be constant for the
+duration of the construct they represent.
+This section describes function interfaces for extracting handle information from the OpenMP runtime system.
+
+\subsection{Thread Handles}
+
+
+\paragraph{Retrieve handles for all OpenMP threads.}  The  \verb|ompd_get_threads| operation enables the debugger to obtain handles for all OpenMP threads.  A successful invocation of  \verb|ompd_get_threads| returns a pointer to a vector of handles in \verb|thread_handle_array| and returns the number of handles in \verb|num_handles|.
+This call yields meaningful results only if all OpenMP threads are stopped; otherwise, the OpenMP runtime may be creating and/or destroying threads during or after the call, rendering useless the vector of handles returned.
+
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_threads(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_thread_handle_t **thread_handle_array, 
+  int *num_handles
+);
+\end{verbatim}
+\end{quote}
+
+\paragraph{Retrieve handles for OpenMP threads in a parallel region.}
+The  \verb|ompd_get_thread_in_parallel| operation enables the debugger to obtain handles for all OpenMP threads associated with a parallel region.  A successful invocation of  \verb|ompd_get_thread_in_parallel| returns a pointer to a vector of handles in \verb|thread_handle_array| and returns the number of handles in \verb|num_handles|.
+This call yields meaningful results only if all OpenMP threads in the parallel region are stopped; otherwise, the OpenMP runtime may be creating and/or destroying threads during or after the call, rendering useless the vector of handles returned.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_thread_in_parallel(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_parallel_handle_t parallel_handle, 
+  ompd_thread_handle_t **thread_handle_array, 
+  int *num_handles
+);
+\end{verbatim}
+\end{quote}
+
+\subsection{Parallel Region Handles}
+
+
+\paragraph{Retrieve the handle for the innermost parallel region for an OpenMP thread.}
+The  operation \verb|ompd_get_top_parallel_region|  enables the debugger to obtain the handle for the innermost parallel region associated with an OpenMP thread. This call is meaningful only if the thread whose handle is provided is stopped.
+ 
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_innermost_parallel_region(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_thread_handle_t thread_handle,
+  ompd_parallel_handle_t *parallel_handle
+ );
+ \end{verbatim}
+ \end{quote}
+ 
+ \paragraph{Retrieve the handle for an enclosing parallel region.}
+The  \verb|ompd_get_ancestor_parallel_handle|  operation enables the debugger to obtain the handle for the parallel region enclosing the parallel region specified by \verb|parallel_handle|. This call is meaningful only if at least one thread in the parallel region is stopped.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_enclosing_parallel_handle(
+  ompd_context_t *context,   /* debugger handle for the target */
+   ompd_parallel_handle_t parallel_handle,
+   ompd_parallel_handle_t *enclosing_parallel_handle
+ );
+ \end{verbatim}
+ \end{quote}
+ 
+\subsection{Task Handles}
+\paragraph{Retrieve the handle for the innermost task for an OpenMP thread.}
+The  debugger uses the operation  \verb|ompd_get_top_task_region|  to obtain the handle for the innermost task region associated with an OpenMP thread. This call is meaningful only if the thread whose handle is provided is stopped.
+\begin{quote}
+ \begin{verbatim}
+EXTERN ompd_rc_t ompd_get_top_task_region(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_thread_handle_t thread_handle, 
+  ompd_task_handle_t *task_handle
+);
+\end{verbatim}
+ \end{quote}
+
+ \paragraph{Retrieve the handle for an enclosing task.}
+The  debugger uses   \verb|ompd_get_ancestor_task_handle|  to obtain the handle for the task region enclosing the task region specified by \verb|task_handle|. This call is meaningful only if the thread executing the task specified by   \verb|task_handle|  is stopped.
+\begin{quote}
+ \begin{verbatim}
+EXTERN ompd_rc_t  ompd_get_ancestor_task_handle(
+  ompd_context_t *context,   /* debugger handle for the target */
+   ompd_task_handle_t task_handle,
+   ompd_task_handle_t *parent_task_handle
+ );
+ \end{verbatim}
+  \end{quote}
+ 
+  \paragraph{Retrieve implicit task handle for a parallel region.}
+The   \verb|ompd_get_implicit_task_in_parallel|  operation enables the debugger to obtain handles for implicit tasks associated with a parallel region.
+This call is meaningful only if all threads associated with the parallel region are stopped.
+
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_implicit_task_in_parallel(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_parallel_handle_t parallel_handle, 
+  ompd_task_handle_t **task_handle_array, 
+  int *num_handles
+);
+\end{verbatim}
+\end{quote}
+
+
+\section{Process and Thread Settings}
+
+The functions \verb|ompd_get_num_procs| and \verb|ompd_get_thread_limit| are third-party versions of the OpenMP runtime functions \verb|omp_get_num_procs| and \verb|omp_get_thread_limit|.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_num_procs(
+  ompd_tword_t *val
+); 
+
+EXTERN ompd_rc_t ompd_get_thread_limit(
+  ompd_tword_t *val
+); 
+\end{verbatim}
+\end{quote}
+
+\section{Parallel Region Inquiries}
+
+\subsection{Settings}
+
+\paragraph{Determine the number of threads associated with a parallel region.}
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_num_threads(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_parallel_handle_t parallel_handle, 
+  ompd_tword_t *val
+);  
+\end{verbatim}
+\end{quote}
+
+\paragraph{Determine the nesting depth of a particular parallel region.}
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_level(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_parallel_handle_t parallel_handle, 
+  ompd_tword_t *val
+); 
+\end{verbatim}
+\end{quote}
+
+\paragraph{Determine the number of enclosing  parallel regions.}
+\verb|ompd_get_active_level| returns the number of nested, active
+parallel regions enclosing the parallel region specified by its handle.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_active_level(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_parallel_handle_t parallel_handle, 
+  ompd_tword_t *val
+); 
+\end{verbatim}
+\end{quote}
+
+\subsection{OMPT Parallel Region Inquiry Analogues}
+
+The function  \verb|ompd_get_parallel_id| is a third-party variant of \verb|ompt_get_parallel_id| .
+The only difference between the OMPD and OMPT version is that the OMPD  must supply a parallel region handle to provide a context for these inquiries.
+% Calls to these functions need not return meaningful results unless the thread is stopped.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_parallel_id(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_parallel_handle_t parallel_handle, 
+  ompd_parallel_id_t *id
+);
+\end{verbatim}
+\end{quote}
+  
+\section{Thread Inquiries}
+
+\subsection{Operating System Thread Inquiry}
+
+OMPD provides the function \verb|ompd_get_thread_handle| to inquire whether an operating system thread is an OpenMP thread or not. If the function returns \verb|ompd_rc_ok|, then the operating system thread is an OpenMP thread and \verb|thread_handle| will be initialized with the value of a handle for this thread that is meaningful to the OpenMP runtime system.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_thread_handle(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_osthread_t *os_thread, 
+  ompd_thread_handle_t *thread_handle
+);
+\end{verbatim}
+\end{quote}
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_osthread(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_thread_handle_t thread_handle,
+  ompd_osthread_t *os_thread
+);
+\end{verbatim}
+\end{quote}
+
+
+\noindent
+{\em Note: This function does not take a \verb|pthread_t| as an argument because OMPD should not assume that operating system threads are pthreads. }
+
+
+
+
+
+\subsection{OMPT Thread State Inquiry Analogue}
+
+The function \verb|ompd_get_state| is a  third-party version of \verb|ompt_get_state|. 
+The only difference between the OMPD and OMPT counterparts is that the OMPD version must supply a thread handle to provide a context for this inquiry.
+% Calls to this function need not return meaningful results unless the thread is stopped.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_state(
+  ompd_context_t *context,
+  ompd_thread_handle_t thread_handle, 
+  ompt_state_t *state, 
+  ompt_wait_id_t *wait_id
+);
+\end{verbatim}
+\end{quote}
+
+
+
+\section{Task Inquiries}
+
+
+\subsection{Task Settings}
+
+Retrieve information from OpenMP tasks. These inquiry functions have no counterparts in the OMPT interface as a first-party tool can call OpenMP runtime inquiry functions directly.
+The only difference between the OMPD inquiry operations and their counterparts in the OpenMP runtime is that the OMPD version must supply a task handle to provide a context for each inquiry.
+ 
+ \begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_max_threads(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+); 
+
+EXTERN ompd_rc_t ompd_get_thread_num(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+ ); 
+ 
+EXTERN ompd_rc_t ompd_in_parallel(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+); 
+
+EXTERN ompd_rc_t ompd_in_final(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+ ); 
+ 
+EXTERN ompd_rc_t ompd_get_dynamic(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+);  
+
+EXTERN ompd_rc_t ompd_get_nested(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+ );
+ 
+EXTERN ompd_rc_t ompd_get_max_active_levels(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  int *val
+);
+
+EXTERN ompd_rc_t ompd_get_schedule(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  omp_sched_t *kind, 
+  int *modifier
+); 
+
+EXTERN ompd_rc_t ompd_get_proc_bind(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle, 
+  omp_proc_bind_t *bind
+); 
+\end{verbatim}
+\end{quote}
+
+\subsection{OMPT Task Inquiry Analogues}
+
+The functions defined here are third-party versions of \verb|ompt_get_task_frame| and \verb|ompt_get_task_id|. 
+The only difference between the OMPD and OMPT counterparts is that the OMPD version must supply a task  handle to provide a context for these inquiries.
+% Calls to these functions need not return meaningful results unless the thread is stopped.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_task_frame(
+  ompd_context_t *context,   /* debugger handle for the target */
+  ompd_task_handle_t task_handle,
+  void *sp_exit, 
+  void *sp_reentry
+);
+
+EXTERN ompd_rc_t ompd_get_task_id(
+  ompd_context_t *context,
+  ompd_task_handle_t task_handle, 
+  ompd_task_id_t *task_id
+);
+\end{verbatim}
+\end{quote}
+
+\section{OMPD Version and Compatibility Information}
+
+The OMPD function \verb|ompd_get_version_string| returns a descriptive string describing an implementation of the OMPD library. The function \verb|ompd_get_version_compatibility| returns an integer code used to indicate the revision of the OMPD specification supported by an implementation of OMPD.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_version_string(
+  const char **string
+);
+
+EXTERN ompd_rc_t ompd_get_version_compatibility(
+  int *val
+);
+\end{verbatim}
+\end{quote}
+
+\section{OMPD Error String}
+
+The OMPD function \verb|ompd_get_error_string| returns a descriptive string to the debugger for a specified error code.
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_get_error_string(
+  int errcode,
+  const char **string
+);
+
+\end{verbatim}
+\end{quote}
+
+\section{Breakpoint Locations for Managing Parallel Regions and Tasks}
+Neither a debugger nor an OpenMP runtime system know what application code a program will launch as parallel regions or tasks until the program invokes the runtime system and provides a code address as an argument.
+To help a debugger control the execution of an OpenMP program launching parallel regions or tasks, OMPD provides a routine that the debugger can invoke to 
+determine where to place breakpoints. 
+
+The \verb|ompd_get_breakpoints| routine will fill in an  \verb|ompd_breakpoints_t| structure with pointers to code locations where the debugger can place breakpoints to intercept execution just before the OpenMP runtime launches a task or parallel region, and just after execution of a parallel region or task completes. 
+\begin{quote}
+\begin{verbatim}
+typedef struct ompd_breakpoints_s {
+  ompd_taddr_t parallel_pre_execute;
+  ompd_taddr_t parallel_post_execute;
+  ompd_taddr_t task_pre_execute;
+  ompd_taddr_t task_post_execute;
+} ompd_breakpoints_t;
+
+EXTERN ompd_rc_t ompd_get_breakpoints(
+  ompd_context_t *context,  /* debugger handle for the target */
+  ompd_breakpoints_t *bkpt_locations
+);
+\end{verbatim}
+\end{quote}
+
+
+When the debugger gains control as the 
+  \verb|parallel_pre_execute| code location breakpoint  triggers, 
+the debugger can determine what user code the parallel region will execute by mapping the operating system thread that triggered the breakpoint
+ to an OpenMP thread handle 
+using \verb|ompd_get_thread_handle|, mapping the thread handle to a parallel region handle using \verb|ompd_get_top_parallel_region|, and then using
+\verb|ompd_get_parallel_function| to determine the entry point for the user code that the parallel region will execute. 
+
+Similarly, when the debugger gains control as a breakpoint at the  \verb|task_pre_execute| code location  triggers, 
+the debugger can determine what user task code will execute by mapping a native thread to an OpenMP thread handle 
+using \verb|ompd_get_thread_handle|, mapping the thread handle to a parallel region handle using \verb|ompd_get_top_task_region|, and then using
+\verb|ompt_get_task_function| to determine the entry point for the user tasking code.
+
+Each of these breakpoints is triggered only once per parallel region, not once per thread in a parallel region. The  \verb|task_pre_execute| and  \verb|task_post_execute| breakpoints may be triggered in different threads if a task executes on a different thread then where it was launched.
+
+
+
+\section{Display Control Variables}
+Using the \verb|ompd_display_control_vars| function, the debugger can extract a string that contains a sequence of name/value pairs of control variables whose settings are (a) user controllable, and (b) important to the operation or performance of an OpenMP runtime system. The control variables exposed through this interface will include all of the OMP environment variables,  settings that may come from vendor or platform-specific environment variables (e.g., the IBM XL compiler has an environment variable that controls spinning vs. blocking behavior), and other settings that affect the operation or functioning of an OpenMP runtime system  (e.g., {\tt numactl} settings that cause threads to be bound to cores).
+
+\begin{quote}
+\begin{verbatim}
+EXTERN ompd_rc_t ompd_display_control_vars(
+   const char **control_var_values
+);
+\end{verbatim}
+\end{quote}
+
+The format of the string returned by \verb|ompd_display_control_vars| is a sequence of newline separated name/value pairs of the following form:
+
+\begin{quote}
+\begin{verbatim}
+name=valuestring_that_can_contain_any_char_but_newline
+anothername=another value string
+\end{verbatim}
+\end{quote}
+
+
+
+
+\section{OMPD Tool Initialization Control}
+\label{sec:debug-init}
+
+A debugger can control the level at which OpenMP runtime support for tools is activated by invoking
+
+
+\begin{quote}
+\begin{verbatim}
+EXTERN int ompd_enable(
+  ompd_enable_setting_t setting
+);
+\end{verbatim}
+\end{quote}
+
+\noindent 
+To disable all OMPT support for tools, a debugger calls \verb|ompd_enable(false)|.
+To enable support for tools, 
+a debugger  calls \verb|ompd_enable(true)|.
+With this setting specified, an OpenMP runtime will maintain runtime state (as described in~\ref{sec:states}) and support all OMPT tool-facing inquiry functions (as described in Section~\ref{sec:inquiry}). 
+
+When \verb|ompd_enable| is called, its effect is not necessarily instantaneous. A call to enable or disable tool support will take effect at a clean point.
+% (as described in Section~\ref{sec:init}).
+
+Upon a call to \verb|ompd_enable(true)|, if has not already been enabled, an OpenMP runtime may invoke a tool's \verb|ompt_initialize| callback at the next clean point.
+Upon a call to \verb|ompd_enable| with  \verb|false| as an argument,  if a  tool has already been initialized and the tool
+has registered a callback for \verb|ompt_event_runtime_shutdown|, the shutdown callback may occur no earlier than the next clean point.
+
+If a tool is already enabled before a call to \verb|ompd_enable(true)|, a call to \verb|ompt_enable_complete| occurs before the call to \verb|ompd_enable|  returns. 
+If no tool is present or it has already been disabled, the call to \verb|ompt_enable_complete| occurs before the call to \verb|ompd_enable|  returns.
+A debugger can set a breakpoint in  \verb|ompt_enable_complete|  to observe when a tool has been enabled or disabled.
+
+\clearpage
+
+
+\section{OMPD Interface Type Definitions}
+\label{appendix:ompd-types}
+\subsection{Basic Types}
+
+\begin{verbatim}
+typedef uint64_t ompd_taddr_t;
+typedef int64_t  ompd_tword_t;
+\end{verbatim}
+
+
+
+\subsection{OS Thread Handle}
+
+An OpenMP runtime may be implemented on different threading substrates. OMPD uses the \verb|ompd_osthread_t| type to describe an operating system thread upon which an OpenMP thread is overlaid.
+
+\begin{verbatim}
+typedef enum {
+  ompd_osthread_pthread,
+  ompd_osthread_lwp
+  ompd_osthread_winthread;
+} ompd_osthread_kind_t;
+
+typedef struct  {
+  ompd_osthread_kind_t kind;
+  union {
+    int64_t pthread;
+    int64_t lwp;
+    int64_t winthread;
+  } data;
+} ompd_osthread_t;
+\end{verbatim}
+
+
+\subsection{Context Handles}
+
+Each OMPD interface operation that applies to a particular  thread, parallel
+region, or task must  explicitly specify the context for the operation using a handle.
+OMPD employs context handles for threads, parallel regions, and tasks.
+A handle for an entity is constant while the entity itself is live.
+
+\begin{verbatim}
+typedef uint64_t ompd_thread_handle_t;
+typedef uint64_t ompd_parallel_handle_t;
+typedef uint64_t ompd_task_handle_t;
+typedef uint64_t ompd_type_handle_t;
+\end{verbatim}
+
+
+\subsection{Return Codes}
+Each OMPD interface operation has a return code. The purpose of the each return code is explained by the comments in the definition below.
+\begin{verbatim}
+typedef enum {
+  ompd_rc_ok            = 0,  /* operation was successful */
+  ompd_rc_unavailable   = 1,  /* info is not available (in this context) */
+  ompd_rc_stale_handle  = 2,  /* handle is no longer valid */
+  ompt_rc_bad_input     = 3,  /* bad input parameters (other than handle) */
+  ompt_rc_error         = 4,  /* error */
+  ompt_rc_unsupported   = 5   /* operation is not supported */
+  ompd_rc_needs_state_tracking = 6   /* needs runtime state tracking enabled */
+} ompd_rc_t;
+\end{verbatim}
+
+\subsection{Primitive Types}
+
+This enumeration of primitive types is used by OMPD to interrogate the debugger about the size of primitive types in the target.
+
+\begin{verbatim}
+typedef struct {
+  int sizeof_char;
+  int sizeof_short;
+  int sizeof_int;
+  int sizeof_long;
+  int sizeof_long_long;
+  int sizeof_pointer;
+} ompd_target_type_sizes_t;
+\end{verbatim}
+
+\subsection{Type Signatures for Debugger Callbacks}
+For OMPD to provide information  about the internal state of the OpenMP runtime system in a target process, it must have a means to extract information from the target process. The target process  may be  a live process or core file. 
+To enable OMPD to extract state information from a target process, a debugger supplies OMPD with callback functions to inquire about the size of primitive types in the target, look up symbols, look up the offset of a field in a type, as well as read and write memory in the target. OMPD then uses these callbacks to implement its interface operations. Signatures for the debugger callbacks used by OMPD are given below.
+
+\paragraph{Memory management.} The callback signatures below are used to allocate and free memory in the debugger's address space.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_dmemory_alloc_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  size_t bytes,             /* the primitive type of interest */
+  void **ptr                /* a successful call returns a pointer to the memory here */
+);
+
+typedef ompd_rc_t (*ompd_dmemory_free_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  void *ptr                 /* a successful call deallocates the memory here */
+);
+\end{verbatim}
+
+\paragraph{Primitive type size.} The callback signature below is used to look up the sizes of primitive types in the target.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_tmemory_access_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  ompd_target_type_sizes_t *sizes,    /* a successful call returns the  type sizes here */         
+);
+\end{verbatim}
+
+\paragraph{Symbol lookup.}
+The callback signature below is used to look up the address of a global symbol in the target.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_tsymbol_addr_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  const char *symbol_name,  /* global symbol name */
+  ompd_taddr_t *symbol_addr        /* a successful call returns the symbol address here */
+);
+\end{verbatim}
+
+\paragraph{Type lookup.} The callback signature below is used to look up a type in the target.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_ttype_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  const char *type_name,    /* name of the type/structure */
+  ompd_ttype_handle_t *ttype_handle  /* a successful call returns the type handle here */
+);
+\end{verbatim}
+
+\paragraph{Type size lookup.} The callback signature below is used to look up the size of a type in the target.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_ttype_sizeof_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  ompd_ttype_handle_t *ttype_handle,    /* handle of the type/structure */
+  ompd_tword_t *type_size         /* a successful call returns the type size here */
+);
+\end{verbatim}
+
+\paragraph{Type field offset lookup.} The callback signature below is used to look up the offset of a field in a type in the target.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_ttype_offset_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  ompd_ttype_handle_t *ttype_handle,    /* handle of the type/structure */
+  const char *field_name,   /* field of interest in the type/structure */
+  ompd_tword_t *field_offset     /* a successful call returns the field offset here */
+);
+\end{verbatim}
+
+\paragraph{Memory access.} The callback signature below is used to read or write memory in the target.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_tmemory_access_fn_t) (
+  ompd_context_t *context,  /* debugger handle for the target */
+  ompd_taddr_t *addr,               /* address in the process or core file */
+  void *buffer,             /* input buffer for write; output buffer for read  */
+  ompd_tword_t bufsize            /* number of bytes to be transferred  */
+);
+\end{verbatim}
+
+\paragraph{Data format conversion.} The callback signature below is used to convert data from the target byte ordering to the host byte ordering
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_target_host_fn_t) (
+  ompd_context_t *context, 
+  const void *input, 
+  void *output, 
+  int nbytes);
+\end{verbatim}
+
+\paragraph{Get error string.} The callback signature below is used by OMPD to retrieve an error string from the debugger given an error code.
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_error_string_fn_t) (
+  ompd_context_t *context, 
+  int error_code,
+  const char **string
+\end{verbatim}
+
+\paragraph{Print string.} The callback signature below is used by OMPD to have the debugger print a string. OMPD should not print directly. 
+\begin{verbatim}
+typedef ompd_rc_t (*ompd_print_string_fn_t) (
+  ompd_context_t *context, 
+  const char *string
+\end{verbatim}
+
+
+\section{Debugger Callback Interface}
+\label{sec:ompd_data_types}
+
+OMPD must interact with both the debugger and an OpenMP target process or address space.
+OMPD must interact with the debugger to allocate or free memory in address space that OMPD shares with the debugger.
+OMPD needs the debugger to access the target on its behalf to
+inquire about the sizes of primitive types in the target, look up the address of symbols in the target, look up the offset of fields in structures in the target, as well as read and write memory in the target. 
+
+OMPD interacts with the debugger and the target through a callback interface.
+The callback interface  is defined by the \verb|ompd_callbacks_t| structure. The debugger  supplies \verb|ompd_callbacks_t| to OMPD by filling it out  in the \verb|ompd_initialize| callback. 
+
+
+\begin{verbatim}
+typedef struct {
+  /*---------------------------------------------------------------------------------------*/
+  /* debugger interface
+  /*---------------------------------------------------------------------------------------*/
+  
+  /* interface for ompd to allocate/free memory in the debugger's address space */
+  ompd_dmemory_alloc_fn_t  d_alloc_memory;      /* allocate memory in the debugger         */
+  ompd_dmemory_free_fn_t   d_free_memory;       /* free memory in the debugger             */
+  
+  /* errors */
+  ompd_error_string_fn_t get_error_string;  /* retrieve an error string for an error code  */
+  
+  /* printing */
+  ompd_print_string_fn_t print_string;    /* have the debugger print a string for OMPD     */
+    
+  /*---------------------------------------------------------------------------------------*/
+  /* target interface
+  /*---------------------------------------------------------------------------------------*/
+  
+  /* obtain information about the size of primitive types in the target   */
+  ompd_tsizeof_prim_fn_t   t_sizeof_prim_type;    /* return the size of a primitive type   */
+  
+  /* obtain information about symbols and structure offsets in the target  */
+  ompd_tsymbol_addr_fn_t   t_symbol_addr_lookup;  /* look up the address of a symbol       */
+  
+  ompd_ttype_fn_t   t_type_lookup;                /* look up a type in the target          */
+  ompd_ttype_sizeof_fn_t   t_type_sizeof;         /* look up the size of of a type         */
+  ompd_ttype_offset_fn_t   t_type_field_offset;   /* look up a field offset in a type      */
+  
+  /* access data in the target   */
+  ompd_tmemory_access_fn_t t_read_memory;       /* read from target address into buffer    */
+  ompd_tmemory_access_fn_t t_write_memory;      /* write from buffer to target address     */
+  
+  /* convert byte ordering */
+  ompd_target_host_fn_t target_to_host; 
+  
+} ompd_callbacks_t;
+\end{verbatim}
+% \end{comment}
+
+ \clearpage
+ \bibliographystyle{abbrv}
+ \bibliography{ompd-tr}
+
+\end{document}
+
+\clearpage
+{
+\color{red}
+\section*{Outstanding Issues}
+\section*{General Issues}
+\begin{itemize}
+\item Is it preferable to replace all enum definitions with integer types and use \verb|#define| to define values?
+\end{itemize}
+\section*{OMPT Issues}
+
+\begin{itemize}
+\item Verify callback types for events.
+
+% \item The OpenMP runtime currently defines a global variable \verb|ompt_debugger_plugin| to identify a compatible OMPD implementation. We should probably follow the lead of MPIR for how we specify this. (Action item for Martin) status: done.
+\item We need to distinguish which functions require OMPT state tracking to be enabled. 
+Functions that require OMPT state tracking are not guaranteed to be available unless  state tracking is explicitly enabled using  \verb|OMP_TOOL=true|  or using \verb|ompd_enable(true)|. 
+
+\end{itemize}
+
+% \item What about micro task launcher and micro task dispatcher? I think that we have that covered by \verb|ompd_get_breakpoints|.
+\begin{comment}
+\section*{OMPD Issues}
+
+\begin{itemize}
+\item Are there any other OS thread types that should be covered by \verb|ompd_thread_kind_t|? (Action item for John) 
+status: windows support added. done.
+the answer is no to these questions
+\item Do we need to distinguish between process and thread context in OMPD?
+\item Is there a need for a mechanism that will allow OMPD to inquire about values of thread-local variables in used in the runtime implementation of OpenMP threads? If so, we need to design this mechanism.
+\item Do we want name demangling support from OMPD? Is that something too compiler revision specific to support in OMPD?
+
+\end{comment}
+}
+
+
+
+
+
+
+IBM: all their data structures are global
+	no need for thread contexts
+	
+if vendor relies on thread-private data, then might need a thread context
+are thread handles enough?
+
+debugger: process/address space
+thread execution
+
+
+
+
+
+
+
+
