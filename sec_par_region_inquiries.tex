@@ -1,0 +1,80 @@
+\section{Parallel Region Inquiries}
+
+We describe OMPD functions to perform inquiries about parallel regions.
+
+\subsection{Parallel Region Settings}
+
+\paragraph{Determine the number of threads associated with a parallel region.}
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_num_threads (
+  ompd_parallel_handle_t  *parallel_handle,                         /* IN */
+  ompd_tword_t            *val                                     /* OUT */
+);  
+\end{lstlisting}
+\end{quote}
+\labeldef{get-num-threads:def}
+
+\paragraph{Determine the nesting depth of a particular parallel region.}
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_level (
+  ompd_task_handle_t  *task_handle,                                 /* IN */
+  ompd_tword_t        *val                                         /* OUT */
+); 
+\end{lstlisting}%
+\end{quote}
+\labeldef{get-level:def}
+
+\paragraph{Determine the number of enclosing  parallel regions.}
+\verb|ompd_get_active_level| returns the number of nested, active
+parallel regions enclosing the parallel region specified by its handle.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_active_level (
+  ompd_task_handle_t  *task_handle,                                 /* IN */
+  ompd_tword_t        *val                                         /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+\labeldef{get-active-level:def}
+
+\subsection{OMPT Parallel Region Inquiry Analogues}
+
+The function \verb|ompd_get_parallel_id| is a third-party variant of
+\verb|ompt_get_parallel_id|.
+The \verb|ompd_parallel_id_t| for a parallel region is unique across
+all parallel regions.
+A parallel region is assigned a unique ID when the region is created.
+Tools should not assume that \verb|ompd_parallel_id_t| values for
+adjacent regions are consecutive.  
+The value 0 is reserved to indicate an invalid parallel id.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_parallel_id (
+  ompd_parallel_handle_t  *parallel_handle,                         /* IN */
+  ompd_parallel_id_t      *id                                      /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-parallel-id:def}
+
+\subsection{Parallel Function Entry Point}
+
+The \texttt{ompd\_get\_parallel\_function} returns the
+entry point of the code that corresponds to the body of
+the parallel construct.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rd_t ompd_get_parallel_function (
+  ompd_parallel_handle_t  *parallel_handle,                         /* IN */
+  ompd_address_t          *entry_point                             /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-parallel-function:def}

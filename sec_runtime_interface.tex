@@ -1,0 +1,102 @@
+\section{OpenMP Runtime Interface}
+\label{runtime-interface:sec}
+
+As part of the OpenMP interface, OMPD requires that the OpenMP
+runtime system provides a public variable \verb|ompd_dll_locations|,
+which is an \texttt{argv}-style vector of filename string pointers that
+provides the pathnames(s) of any compatible OMPD plugin
+implementations (if any).
+\texttt{ompd\_dll\_locations} must have \texttt{C} linkage.
+The debugger uses the name verbatim, and in particular, will
+not apply any name mangling before performing the look up.
+The pathnames may be relative or absolute. The variable declaration is as 
+follows:
+
+\begin{quote}
+\begin{lstlisting}
+const char **ompd_dll_locations;
+\end{lstlisting}
+\end{quote}
+\labeldef{dll-locations:def}
+
+\noindent
+%%%% The value of \verb|ompd_dll_locations| may be NULL initially,
+%%%% but must be filled in before \verb|ompd_initialize| is called.
+%%%% After that,
+\verb|ompd_dll_locations|  shall point to a NULL-terminated
+vector of zero or more NULL-terminated pathname strings.
+There are no filename conventions for pathname strings.
+The last entry in the vector shall be NULL. 
+The vector of string pointers must be fully initialized \emph{before}
+\texttt{ompd\_dll\_locations} is set to a non-NULL value,
+such that if the debugger stops execution at any point
+where \texttt{ompd\_dll\_locations} is non-NULL, then the vector
+of strings it points to is valid and complete.
+
+The programming model or architecture of the debugger (and hence
+that of the required OMPD) might not match that of the target
+OpenMP program.
+It is the responsibility of the debugger to interpret the contents
+of \texttt{ompd\_dll\_locations} to find a suitable OMPD that matches
+its own architectural characteristics.
+On platforms that support different programming models
+(\textit{e.g.}, 32- v. 64-bit), OpenMP implementers are encouraged
+to provide OMPD implementations for all models, and which can handle
+targets of any model.
+Thus, for example, a 32-bit debugger should be able to debug a 64-bit target
+by loading a 32-bit OMPD that can manage a 64-bit OpenMP runtime.
+
+The OpenMP runtime shall notify the debugger that
+\texttt{ompd\_dll\_locations} is valid by calling:
+\begin{quote}
+\begin{lstlisting}
+void ompd_dll_locations_valid ( void );
+\end{lstlisting}
+\end{quote}
+\labeldef{dll-locations-valid:def}
+
+\noindent
+The debugger can receive notification of this event by planting
+a breakpoint in this routine.
+\texttt{ompd\_dll\_locations\_valid()} has \texttt{C} linkage,
+and the debugger will not apply name mangling before searching
+for this routine.
+In order to support debugging, the OpenMP runtime may need to collect
+and maintain information that it might otherwise not do, perhaps
+for performance reasons, or because it is not otherwise needed.
+The OpenMP runtime will collect whatever information is necessary
+to support OMPD debugging if:
+\begin{enumerate}
+\item
+  the environment variable \texttt{OMP\_OMPD} is set to \texttt{on}
+\item
+  the target calls the
+  \texttt{void omp\_ompd\_enable~(~void~)}\labeldef{ompd-enable:def}
+  function defined in the OpenMP runtime.
+  This function may be called by the main executable, or any of the
+  shared libraries the executable loads, and may be made in an
+  initializer executed when a shared library is loaded
+  (\textit{e.g.}, those in the \texttt{.init} section of an ELF DLL).
+  It should be called before the target executes its first OMP
+  construct.
+
+  \textbf{Rationale:}
+  In some cases it may not be possible to control a target's
+  environment.
+  \texttt{omp\_ompd\_enable} allows a target itself to turn on
+  data collection for OMPD.
+  Allowing the function to be called from an initializer allows
+  the call to be positioned in an otherwise empty DLL that the
+  programmer can link with the target.
+  This leaves the target code unmodified.
+\end{enumerate}
+
+
+%% \begin{comment}
+%% If OMPT runtime state tracking has been enabled for a
+%% runtime~\cite{ompt-tr2}, the OpenMP runtime system will maintain
+%% information about the state of each OpenMP thread that will be
+%% available to an OMPD plugin, including the following types of information:
+%% \verb|ompt_state_t|, \verb|ompt_wait_id_t|, \verb|ompt_frame_t|,
+%% \verb|ompt_task_id_t|, and \verb|ompt_parallel_id_t| data structures.
+%% \end{comment}

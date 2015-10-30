@@ -1,0 +1,91 @@
+\section{Thread Inquiries}
+
+We describe OMPD functions to perform inquiries about threads.
+
+\subsection{Operating System Thread Inquiry}
+
+\paragraph{Mapping an operating system thread to an OMPD thread handle.}
+OMPD provides the function \verb|ompd_get_thread_handle|
+to inquire whether an operating system thread is an OpenMP
+thread or not.
+If the function returns \verb|ompd_rc_ok|, then the operating
+system thread is an OpenMP thread and \verb|*thread_handle|
+will be initialized to a pointer to the thread handle for
+the OpenMP thread.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_thread_handle (
+  ompd_address_space_handle_t   *handle,                            /* IN */
+  ompd_osthread_kind_t           kind,                              /* IN */
+  ompd_size_t                    sizeof_osthread,                   /* IN */
+  const void                    *osthread,                          /* IN */
+  ompd_thread_handle_t         **thread_handle                     /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-thread-handle:def}
+The operating system ID \texttt{*osthread} is guaranteed
+to be valid for the duration of the call.
+If the OMPD implementation needs to retain the operating system-specific
+thread identifier it must copy it.
+
+The thread handle \texttt{*thread\_handle} returned by the OMP implementation
+is `owned' by the debugger, which must release it by calling
+\refdef{\texttt{ompd\_release\_thread\_handle}}{release-thread-handle:def}.
+If \texttt{os\_thread} does not refer to an OpenMP thread,
+\texttt{ompd\_get\_thread\_handle} returns \texttt{ompd\_rc\_bad\_input}
+and \texttt{*thread\_handle} is also set to NULL.
+
+\paragraph{Mapping an OMPD thread handle to an operating system thread.}
+\verb|ompd_get_osthread| performs the mapping between an OMPD
+thread handle and an operating system-specific thread identifier.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_osthread (
+  ompd_thread_handle_t  *thread_handle,                             /* IN */
+  ompd_osthread_kind_t   kind,                                      /* IN */
+  ompd_size_t            sizeof_osthread,                           /* IN */
+  void                  *osthread                                  /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-osthread:def}
+
+The caller indicates what \emph{kind} of operating system-specific thread
+identifier it wants by setting the \refdef{\texttt{kind}}{osthread-kind-t:def}
+`in' parameter.
+It also passes a pointer to the buffer into which the OMPD
+implementation writes the operating system-specific thread identifier,
+and the size of the buffer, to the OMPD implementation.
+The buffer is owned by the debugger.
+
+On success \texttt{ompd\_get\_osthread} returns \texttt{rc\_ok},
+and returns the operating system-specific thread identifier in
+\texttt{*osthread}.
+If the operation fails, the OMPD implementation returns
+the appropriate value from \refdef{\texttt{ompd\_rc\_t}}{rc-t:def}.
+Note that the operation should fail if the OMPD implementation is
+unable to return an operating system-specific identifier of the
+requested `kind' or size.
+
+
+\subsection{Thread State Inquiry Analogue}
+
+The function \verb|ompd_get_state| is a  third-party version of
+\verb|ompt_get_state|. 
+The only difference between the OMPD and OMPT counterparts
+is that the OMPD version must supply a thread handle to provide
+a context for this inquiry.
+% Calls to this function need not return meaningful results unless the thread 
+%is stopped.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_state (
+  ompd_thread_handle_t  *thread_handle,                             /* IN */
+  ompd_state_t          *state,                                    /* OUT */
+  ompd_wait_id_t        *wait_id                                   /* OUT */
+);
+\end{lstlisting}
+\end{quote}

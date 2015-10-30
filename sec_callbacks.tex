@@ -1,0 +1,67 @@
+\section{Debugger Callback Interface}
+\label{sec:ompd_data_types}
+
+OMPD must interact with both the debugger and an OpenMP target process or core 
+file. OMPD must interact with the debugger to allocate or free memory in 
+address space that OMPD shares with the debugger. OMPD needs the debugger to 
+access the target on its behalf to inquire about the sizes of primitive types 
+in the target, look up the address of symbols in the target, as well as read 
+and write memory in the target. 
+
+OMPD interacts with the debugger and the target through a callback interface.
+The callback interface  is defined by the \verb|ompd_callbacks_t| structure.
+The debugger  supplies \verb|ompd_callbacks_t| to OMPD by filling it out
+in the \verb|ompd_initialize| callback. 
+
+\lstset{ %
+	basicstyle=\footnotesize\ttfamily,
+}
+
+\begin{lstlisting}
+typedef struct {
+  /*---------------------------------------------------------------------------------------*/
+  /* debugger interface                                                                    */
+  /*---------------------------------------------------------------------------------------*/
+  
+  /* interface for ompd to allocate/free memory in the debugger's address space */
+  ompd_dmemory_alloc_fn_t  d_alloc_memory;      /* allocate memory in the debugger         */
+  ompd_dmemory_free_fn_t   d_free_memory;       /* free memory in the debugger             */
+
+  /* printing */
+  ompd_print_string_fn_t   print_string;  /* have the debugger print a string for OMPD     */
+    
+  /*---------------------------------------------------------------------------------------*/
+  /* target interface                                                                      */
+  /*---------------------------------------------------------------------------------------*/
+  
+  /* obtain information about the size of primitive types in the target   */
+  ompd_tsizeof_prim_fn_t   t_sizeof_prim_type;    /* return the size of a primitive type   */
+  
+  /* obtain information about symbols in the target  */
+  ompd_tsymbol_addr_fn_t   t_symbol_addr_lookup;  /* look up the address of a symbol       */
+  
+  
+  /* access data in the target   */
+  ompd_tmemory_read_fn_t   t_read_memory;       /* read from target address into buffer    */
+  ompd_tmemory_write_fn_t  t_write_memory;      /* write from buffer to target address     */
+  
+  /* convert byte ordering */
+  ompd_target_host_fn_t target_to_host; 
+  ompd_target_host_fn_t host_to_target; 
+  
+  /*---------------------------------------------------------------------------------------*/
+  /* context management                                                                    */
+  /*---------------------------------------------------------------------------------------*/
+
+  ompd_get_thread_context_for_osthread_fn_t get_thread_context_for_osthread;
+
+  /*---------------------------------------------------------------------------------------*/
+  /* context navigation                                                                    */
+  /*---------------------------------------------------------------------------------------*/
+
+  ompd_get_address_space_context_for_thread_fn_t  
+  get_address_space_context_for_thread;
+
+} ompd_callbacks_t;
+\end{lstlisting}
+\labeldef{callbacks-t:def}

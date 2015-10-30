@@ -1,0 +1,30 @@
+\section{Memory Management}
+\label{memory-management:sec}
+
+The OMPD DLL must not access the heap manager directly. Instead if it needs 
+heap memory it should use the memory allocation and deallocation callback 
+functions provided by the debugger to obtain and release heap memory.
+This will ensure that the DLL does not interfere with any custom memory 
+management scheme the debugger may use.
+
+If the OMPD DLL is implemented in \texttt{C++}, memory management operators 
+like \texttt{new} and \texttt{delete} in all their variants, \emph{must all} be 
+overloaded and implemented in terms of the callbacks provided by the debugger.
+
+In some cases the OMPD DLL will need to allocate memory to
+return results to the debugger. This memory will then be `owned' by the 
+debugger, which will be responsible for releasing it. It is therefore vital 
+that the OMPD DLL and the debugger use the same memory manager.
+
+Handles are created by the OMPD implementation. These are opaque to the 
+debugger, and depending on the specific implementation of OMPD may have complex 
+internal structure.
+The debugger cannot know whether the handle pointers 
+returned by the API correspond to discrete heap allocations. Consequently, the 
+debugger must not simply deallocate a handle by passing an address it receives 
+from the OMPD DLL to its own memory manager. Instead, the API includes 
+functions that the debugger must use when it no longer needs a handle.
+
+Contexts are created by the debugger and passed to the OMPD implementation.
+The OMPD DLL does not need to release contexts; instead this will be done by 
+the debugger after it releases any handles that may be referencing the contexts.

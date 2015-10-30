@@ -1,0 +1,55 @@
+\section{Display Control Variables}
+Using the \verb|ompd_get_display_control_vars| function,
+the debugger can extract a NULL-terminated vector of strings
+of name/value pairs of control variables whose settings are
+(a) user controllable, and
+(b) important to the operation or performance of an OpenMP runtime system.
+The control variables exposed through this interface will include all
+of the OMP environment variables,
+settings that may come from vendor or platform-specific
+environment variables (e.g., the IBM XL compiler has an environment
+variable that controls spinning vs. blocking behavior),
+and other settings that affect the operation or functioning
+of an OpenMP runtime system
+(e.g., {\tt numactl} settings that cause threads to be bound to cores).
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_display_control_vars (
+  ompd_address_space_handle_t   *handle,                            /* IN */
+  const char * const *          *control_var_values                /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-display-control-vars:def}
+The format of the strings is:
+
+\centerline{\texttt{name=a string}}
+\medskip
+The debugger must not modify the vector or strings (\textit{i.e.},
+they are both \texttt{const}).
+The strings are NULL terminated.
+The vector is NULL terminated.
+
+After returning from the call, the vector and strings are `owned'
+by the debugger.
+Providing the termination constraints are satisfied,
+the OMPD implementation is free to use static or dynamic
+memory for the vector and/or the strings, and to arrange
+them in memory as it pleases.
+If dynamic memory is used, then the OMPD implementation
+must use the allocate callback it received in the call to
+\refdef{\texttt{ompd\_initialize}}{initialize:def}.
+As the debugger cannot make any assumptions about how the
+memory used for the vector and strings, it cannot
+release the display control variables directly when they
+are no longer needed, and instead it must use the
+\texttt{ompd\_release\_display\_control\_vars} function:
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_release_display_control_vars (
+  const char * const *           control_var_values                 /* IN */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{release-display-control-vars:def}

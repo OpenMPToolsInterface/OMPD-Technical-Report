@@ -1,0 +1,213 @@
+\section{Initialization and Finalization}
+
+As described in the following sections, the OMPD DLL must be
+initialized exactly once after it is leaded, and finalized exactly once
+before it is unloaded. Per target process or core file initialization and
+finalization are also required.
+
+\subsection{Per DLL Initialization}
+
+The debugger starts the initialization by calling
+\texttt{ompd\_initialize}, which is defined by the OMPD DLL implementation.
+Typically this will happen after the debugger has loaded the
+OMPD DLL.
+Once loaded, the debugger can determine the version of the OMPD
+API supported by the DLL by calling the following function in the DLL:
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_version ( int *version );
+\end{lstlisting}
+\end{quote}
+On success this should return \verb|ompd_rc_ok|;
+\verb|ompd_rc_bad_input| indicates that the argument is invalid.
+Other errors could be reported by \verb|ompd_rc_error|.
+A descriptive string describing the OMPD implementation
+is returned by this function:
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_version_string ( const char **string );
+\end{lstlisting}
+\end{quote}
+The return values are the same as \verb|ompd_get_version|.
+The string returned by the OMPD DLL is `owned' by the DLL,
+and it must not be modified or released by the debugger.
+It is guaranteed to remain valid for as long as the DLL is loaded.
+\texttt{ompd\_get\_version\_string} may be called before
+\texttt{ompd\_initialize} (see below).
+Accordingly, the OMPD DLL must not use heap or stack memory for
+the string it returns to the debugger.
+
+The signatures of \texttt{ompd\_get\_version} and
+\texttt{ompd\_get\_version\_string} are guaranteed not to change
+in future version of the API.
+In contrast, the type definitions and prototypes in the rest of the API
+do not carry the same guarantee.
+Therefore the debugger should check the version of the API of
+a loaded OMPD DLL before calling any other function of the API.
+
+The debugger must provide the OMPD library with a set of callback functions 
+that enable OMPD to allocate and deallocate memory in the debugger's address 
+space, to lookup the sizes of basic primitive types in the target, to lookup 
+symbols in the target, as well as to read and write memory in the target. These 
+callback functions are provided to the OMPD library via a table---a list of 
+function pointers---of type \texttt{ompd\_callbacks\_t}.
+
+The signature of the function is shown below:
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_initialize ( const ompd_callbacks_t *callbacks );
+\end{lstlisting}
+\end{quote}
+\labeldef{initialize:def}
+
+\noindent
+The type \refdef{\texttt{ompd\_callbacks\_t}}{callbacks-t:def} is defined in
+Section~\ref{sec:ompd_data_types}. 
+The argument is guaranteed to be valid for the duration of the call.
+The OMPD library cannot assume that \texttt{callbacks} will remain valid
+after the call returns back to the debugger.
+\begin{notes}
+ilaguna: We need to be more specific here. What does the previous sentence 
+mean?	
+\end{notes}
+
+%% \begin{comment}
+%% The OMPD debugger support library needs the debugger to provide a set of 
+%%callback functions that enable  OMPD to manage memory in the debugger address 
+%%space, look up sizes for primitive types in the target,  to look up symbols 
+%%in 
+%%the target, query information about structures in the target, as well as 
+%%read/write memory in the target.  The OMPD library invokes the function 
+%%\verb|ompd_initialize|, passing a pointer to a \verb|ompd_callbacks_t| 
+%%structure that the debugger will initialize for OMPD. The signature for the 
+%%function is shown below. 
+
+%% \begin{quote}
+%% \begin{lstlisting}
+%% ompd_rc_t ompd_initialize (
+%%   ompd_callbacks_t *data
+%% );
+%% \end{lstlisting}
+%% \end{quote}
+
+
+%% \noindent
+%% The OMPD library may call \verb|ompd_initialize| in a library initialization 
+%%constructor.
+%% The type \verb|ompd_target_t| is defined in 
+%%Appendix~\ref{sec:ompd_data_types}. 
+%% \end{comment}
+
+On success, \texttt{ompd\_initialize} returns \texttt{ompd\_rc\_ok}.
+If the \texttt{data} argument is invalid, \texttt{ompd\_rc\_bad\_input}
+should be returned.
+All other errors will be reported by \texttt{ompd\_rc\_error}.
+
+The above initialization is performed for each OMPD DLL that is loaded by
+the debugger; there may more than one DLL present in the debugger
+because it may be controlling a number of targets that may be using
+different runtimes which require different OMPD DLLs.
+This initialization must be performed exactly once before the debugger
+can begin operating on a target process or core file.
+
+\subsection{Per Target Initialization}
+
+The debugger initializes a session working on a target process or core
+file by calling:
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_process_initialize (
+  ompd_address_space_context_t  *context,                   /* IN */
+  ompd_address_space_handle_t  **handle                    /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{process-initialize:def}
+
+%% \begin{center}
+%% \sl
+%% John: General comment: Do we want the contexts and handles to be
+%% \texttt{const} in the API?
+%% The debugger doesn't change handles, and the DLL doesn't change contexts,
+%% so it seems like passing them as \texttt{const} across the interface
+%% might make sense.
+%% However, making the handles \texttt{const} is problematic because
+%% if the DLL wants to modify what's cached in the handle
+%% it would have to cast away the \texttt{const} to do so.
+%% Which is the lesser evil?
+%% Perhaps for opaque objects (like handles and contexts) \texttt{const}
+%% is not needed because one side of the API does not have the definition
+%% for the other side.
+%% For now, I've left the API calls unchanged until we decide which way
+%% is best.
+
+%% Ariel: With respect to the comment that the DLL doesn't change contexts,
+%% that may be so, but the DLL does pass contexts to the callbacks,
+%% which would therefore have to have matching prototypes.
+%% Given that for the opaque objects the defining side is going to have
+%% to cast to the concrete definition, the \texttt{const} may have some value
+%% in indicating to the user of the API what can and cannot change.
+%% Having the \texttt{const} means that any variables in the debugger
+%% used to hold on to handles will need to be decorated accordingly.
+%% As John asks, which is the lesser evil?
+%% \end{center}
+
+The \verb|context| argument is the pointer to the debugger's host
+address space context object for the target process or core file.
+The OMPD implementation returns a pointer to the address space handle
+in \verb|*handle|, which the debugger is responsible for releasing
+when it is no longer needed.
+This function must be called before any OMPD operations are performed
+on the target.
+\verb|ompd_process_initialize| gives the OMPD DLL an opportunity
+to confirm that it is capable of handling the target process or core file 
+identified
+by the context.
+Incompatibility is signaled by a return value of \verb|ompd_rc_incompatible|.
+
+On return, the handle is owned by the debugger, which must release it
+using
+\refdef{\texttt{ompd\_release\_address\_space\_handle}}{release-address-space-handle:def}.
+
+\subsection{Per Target Finalization}
+
+%% Joachim: This should be rephrased to releasing language.
+%%          Also: should this go to the handle management section?
+%% Ariel: it should go in the handle management section for consistency ...
+%%        But at the moment this is the only place where address space
+%%        handles are created, so the natural place for it is here ...
+%%        But in the future there will be other methods that return
+%%        address space handles, so the release method should be described
+%%        in the handles section.
+%%        So what I've done is put text here and the definition in the
+%%        handles section.
+
+When the debugger is finished working on the target address space
+for a process or core file, it calls
+\refdef{\texttt{ompd\_release\_address\_space\_handle}}{release-address-space-handle:def}
+to tell the OMPD implementation that it not longer needs the address space,
+and to give the OMPD implementation an opportunity to release any
+resources it may have related to the handle.
+
+
+\subsection{Per DLL Finalization}
+
+When the debugger is finished with the OMPD DLL it should call:
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_finalize ( void );
+\end{lstlisting}
+\end{quote}
+\labeldef{finalize:def}
+before unloading the DLL.
+This should be the last call the debugger makes to the DLL before
+unloading it.
+The call to \verb|ompd_finalize| gives the OMPD DLL a chance to
+free up any remaining resources it may be holding.
+
+The OMPD DLL may implement a \emph{finalizer} section.
+This will execute as the DLL is unloaded, and therefore after
+the debugger's call to \verb|ompd_finalize|.
+The OMPD DLL is allowed to use the callbacks (provided to it earlier
+by the debugger after the call to \verb|ompd_initialize|) during finalization.

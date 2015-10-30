@@ -1,0 +1,7 @@
+\section{Thread and Signal Safety}
+
+The OMPD implementation does not need to be reentrant. It is the responsibility 
+of the debugger to ensure that only one thread enters the OMPD DLL at a time.
+
+The OMPD implementation must not install signal handlers or otherwise
+interfere with the debugger's signal configuration.

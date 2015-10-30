@@ -1,0 +1,322 @@
+\section{Task Inquiries}
+
+We describe OMPD functions to perform inquiries about tasks.
+
+\subsection{Task Function Entry Point}
+
+The \verb|ompd_get_task_function| returns the entry point of the code
+that corresponds to the body of code executed by the task:
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_task_function (
+  ompd_task_handle_t  *task_handle,                                 /* IN */
+  ompd_address_t      *entry_point                                 /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-task-function:def}
+
+\subsection{Task Settings}
+
+Here we describe functions to retrieve information from OpenMP tasks, including 
+the values of some \emph{Internal Control Variables (ICVs)}.
+A target is able to get the information defined here directly from
+the runtime. For this reason, these inquiry functions have no counterparts in
+the OMPT interface. The only difference between the OMPD inquiry operations and 
+their counterparts in the OpenMP runtime is that the OMPD version
+must supply a task handle to provide a context for each inquiry.
+Values are returned through the `out' parameter \texttt{val}.
+
+The \verb|ompd_get_max_threads| function returns the value of the
+target's \emph{nthreads-var} ICV (\S2.3.1 of~\cite{OpenMP}),
+and corresponds to the \verb|omp_get_max_threads| function
+in the OpenMP runtime API.
+This returns an upper bound on the number threads that could be used
+to form a new team if a \texttt{parallel} construct without a
+\texttt{num\_threads} clause were encountered.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_max_threads (
+  const ompd_task_handle_t  *task_handle,                           /* IN */
+  ompd_tword_t              *val                                   /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+The \emph{nthreads-var} ICV is defined in OpenMP as a list
+(\S2.3.2 of~\cite{OpenMP}).
+Like \verb|omp_get_max_threads|, \verb|ompd_get_max_threads|
+returns the first element of the list.
+\begin{notes}
+ilaguna: why the first element if the function is named 'max'? This could 
+confuse readers.
+\end{notes}
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_thread_num (
+  const ompd_thread_handle_t  *thread_handle,                       /* IN */
+  ompd_tword_t                *val                                 /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\verb|ompd_get_thread_num| corresponds to the \verb|omp_get_thread_num|
+routine in the OpenMP runtime, and returns the thread's logical
+thread number in the team.
+ 
+\verb|ompd_in_parallel| returns logical true (\textit{i.e.}, \texttt{*val != 0})
+if \emph{active-levels-var}
+ICV (\S2.3.1 of~\cite{OpenMP}) is greater than~0, and false (0) otherwise.
+The routine corresponds to \verb|omp_in_parallel| in the OpenMP runtime.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_in_parallel (
+  const ompd_task_handle_t  *task_handle,                           /* IN */
+  ompd_tword_t              *val                                   /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+
+\verb|ompd_in_final| corresponds to \verb|omp_in_final| and returns
+logical true if the task is a final task.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_in_final (
+  const ompd_task_handle_t  *task_handle,                           /* IN */
+  ompd_tword_t              *val                                   /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+
+\verb|ompd_get_dynamic| returns the value of the
+\emph{dyn-var} ICV (\S2.3.1 of~\cite{OpenMP}),
+and corresponds to the \verb|omp_get_dynamic| member of the OpenMPI API.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_dynamic (
+  const ompd_task_handle_t  *task_handle,                           /* IN */
+  ompd_tword_t              *val                                   /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\emph{dyn-var}~determines whether dynamic adjustment of the number
+of threads is enabled or disabled.
+
+\verb|ompd_get_nested| corresponds to \verb|omp_get_nested|,
+and returns the value of the \emph{nest-var} ICV (\S2.3.1 of~\cite{OpenMP}).
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_nested (
+  const ompd_task_handle_t  *task_handle,                           /* IN */
+  ompd_tword_t              *val                                   /* OUT */
+ );
+\end{lstlisting}
+\end{quote}
+\emph{nest-var} determines if nested parallelism is enabled;
+a logical true value indicates that it is, false that it is not.
+ 
+The maximum number of nested levels parallelism is returned by
+\verb|get_max_active_levels|.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_max_active_levels (
+  const ompd_thread_handle_t  *thread_handle,                       /* IN */
+  ompd_tword_t                *val                                 /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+This operation corresponds to the OpenMP routine
+\verb|omp_get_max_active_levels|
+and the ICV \emph{max-active-levels-var} (\S2.3.1 of~\cite{OpenMP}).%
+
+\begin{notes}
+Ariel: I think this may need a little attention.
+What is the scope of this operation?  The OpenMP4 docment refers
+to a device.
+
+John: The OpenMP spec leaves ``device'' kind of vague.
+The glossary says: ``An implementation defined logical execution engine.
+COMMENT: A device could have one or more processors.''
+And to a certain extent, I'm not sure it matters to OMPD.
+``3.2.16 \texttt{omp\_get\_max\_active\_levels}'' in the OpenMP spec
+implies that a thread is required, which is all I think OMPD
+needs to care about.
+
+Ariel:
+I suppose that the thread has a device associated with it.
+\end{notes}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\verb|ompd_get_schedule| returns information about the schedule that is
+applied when \verb|runtime| scheduling is used.
+%
+This information is represented in the target by the
+\emph{run-sched-var} ICV (\S3.2.1 of~\cite{OpenMP}).
+%
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_schedule (
+  ompd_task_handle_t        *task_handle,                           /* IN */
+  ompd_sched_t              *kind,                                 /* OUT */
+  ompd_tword_t              *modifier                              /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+%
+OpenMP defines a minimum set of values in the enumeration type
+\verb|omp_sched_t| (\S3.2.12 of~\cite{OpenMP}).
+%
+The OMPD API defines
+\refdef{\texttt{ompd\_sched\_t}}{openmp-scheduling:def}, which contains the
+corresponding OpenMP enumeration values and ``lo'' and ``hi'' values
+for the range of implementation-specific scheduling values that can be
+represented by the OMPD API.
+%
+The scheduling kind is returned in \verb|*kind|.
+%
+The interpretation of \verb|*modifier| depends on the value of
+\verb|*kind|.
+%
+See \S3.2.12 and \S3.2.13 of~\cite{OpenMP} for further details.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\verb|ompd_get_proc_bind| returns the value of the task's
+\emph{bind-var} ICV (\S2.3.1 of~\cite{OpenMP}), which ``controls the
+binding of the OpenMP threads to places,'' or ``default thread
+affinity policies.''
+%
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_proc_bind (
+  ompd_task_handle_t        *task_handle,                           /* IN */
+  ompd_proc_bind_t          *bind                                  /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+The OMPD API defines
+\refdef{\texttt{ompd\_proc\_bind\_t}}{openmp-proc-binding:def}, which
+contains the corresponding OpenMP enumeration values.
+%
+The binding is returned in \verb|*bind|.
+%
+See \S3.2.22 of~\cite{OpenMP} for further details.
+
+\verb|ompd_is_implicit| returns logical true (\textit{i.e.}, \texttt{*val != 0})
+if a task is implicit, and false (0) otherwise.
+The routine has no corresponding call in the OpenMP runtime.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_is_implicit (
+  ompd_task_handle_t  *task_handle,                                 /* IN */
+  ompd_tword_t        *val                                         /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\subsection{OMPT Task Inquiry Analogues}
+%
+The functions \verb|ompd_get_task_frame| and \verb|ompd_get_task_id|
+are third-party versions of \verb|ompt_get_task_frame| and
+\verb|ompt_get_task_id|, respectively.
+%
+The \verb|ompd_task_id_t| for a task region is unique across all task
+regions.
+%
+A task region is assigned a unique ID when the region is created.
+Tools should not assume that \verb|ompd_task_id_t| values for adjacent
+task regions are consecutive.
+%
+The value 0 is reserved to indicate an invalid task id.
+%
+\texttt{ompd\_get\_task\_frame} is discussed under Stack Unwinding in
+Section~\ref{stack-unwinding:sec}.
+%
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_task_frame (
+  ompd_task_handle_t        *task_handle,                           /* IN */
+  ompd_address_t            *exit_runtime_addr,                    /* OUT */
+  ompd_address_t            *reenter_runtime_addr                  /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-task-frame:def}
+%
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_task_id (
+  ompd_task_handle_t        *task_handle,                           /* IN */
+  ompd_task_id_t            *task_id                               /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-task-id:def}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\subsection{Stack Unwinding}
+\label{stack-unwinding:sec}
+%
+\begin{notes}
+JVD: This section needs careful review by the OpenMP Tools Working
+Group to ensure its correctness.  It depends on whether or not John
+Mellor-Crummey's 07/16/15 email proposal to omp-tools@openmp.org to
+change the semantics of the \verb|reenter_runtime_addr| field is
+adopted.  What we decide, OMPD and OMPT should be consistent.
+\end{notes}
+
+The \verb|ompd_get_task_frame| function returns stack frame
+information about the target thread associated with the task.
+%
+This routine corresponds to \verb|ompt_get_task_frame| in the OMPT
+API, and the approach for stack inspection is similar to that
+described in Appendix~B of~\cite{ompt-tr2}.
+%
+The \verb|exit_runtime_addr| gives the address of the frame at which
+the thread \emph{left} the OpenMP runtime to execute the user code
+associated with the task.
+%
+The \verb|reenter_runtime_addr| is the address of the frame that
+called the OpenMP runtime.
+\begin{notes}
+JVD: Follows John Mellor-Crummey's
+07/16/15 email proposal to omp-tools@openmp.org to change the
+semantics of the \verb|reenter_runtime_addr| field.)
+\end{notes}
+%
+The debugger can unwind a thread's logical stack by getting the
+thread's current task using
+\refdef{\texttt{ompd\_get\_top\_task\_region}}{get-top-task-region:def}.
+\begin{notes}
+JVD: This assumes that the thread is ``bound'' to the task
+handle. Is that correct?
+\end{notes}
+%
+Using the task handle, the debugger can find the thread's exit and
+reentry stack frame addresses using \texttt{ompd\_get\_task\_frame}.
+%
+It can then use
+\refdef{\texttt{ompd\_get\_ancestor\_task\_region}}{get-ancestor-task-region:def}
+to find the task's parent region, and then call \verb|ompd_get_task_frame|
+for the parent task.
+%
+The frames between the parent task's reenter address and the top
+task's exit address are frames in which the thread is executing OpenMP
+runtime code.
+\begin{notes}
+JVD: Is this still accurate given John M-C's
+proposed new semantics? I think with the new semantics, the addresses
+are always for user frames, not OpenMP runtime frames, so ``between''
+means \emph{exclusive} of the frame addresses.
+\end{notes}
+%
+This process can be repeated to allow all frames in the thread's
+backtrace that correspond to execution in the OpenMP runtime to be
+identified.
+%
+The position within the stack frame where the runtime addresses point
+is implementation defined.

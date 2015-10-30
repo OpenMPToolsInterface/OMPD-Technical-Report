@@ -1,0 +1,96 @@
+\section{OpenMP Runtime Requirements}
+\label{openmp-runtime-requirements:sec}
+
+Most of the debugger's OpenMP-related activities on a target will
+be performed through the OMPD interface.
+However, supporting OMPD introduces some requirements of the OpenMP runtime.
+Some of these have been discussed earlier.
+Here we summarize these requirements and collect them together
+for easy reference.
+
+\begin{enumerate}
+\item
+  The OpenMP must define
+  \refdef{\texttt{ompd\_dll\_locations}}{dll-locations:def};
+\item
+  The OpenMP must define
+  \refdef{\texttt{ompd\_dll\_locations\_valid~()}}{dll-locations-valid:def}
+  and call it once \texttt{ompd\_dll\_locations} is ready to be
+  read by the debugger;
+\item
+  In order to support debugging, the OpenMP may need to collect and
+  maintain information about a target's execution that, perhaps for
+  performance reasons, it would not otherwise not do.
+  The OpenMP runtime must support the following mechanisms for
+  indicating that it should collect whatever information is
+  necessary to support OMPD:
+  \begin{enumerate}
+  \item
+    the environment variable \texttt{OMP\_OMPD} is set to \texttt{on};
+  \item
+    the \emph{target} calls
+    \refdef{\texttt{omp\_ompd\_enable~()}}{ompd-enable:def}
+\begin{notes}
+ilaguna: should OMPD support any of the previous mechanisms or both of 
+them? From the text it's not clear.
+\end{notes}
+  \end{enumerate}
+\item
+  The OpenMP must define the following routines and call them at the
+  times described in Section~\ref{breakpoint-locations:sec}:
+  \begin{description}
+  \item [\texttt{ompd\_bp\_parallel\_begin}]
+  \item [\texttt{ompd\_bp\_parallel\_end}]
+  \item [\texttt{ompd\_bp\_task\_begin}]
+  \item [\texttt{ompd\_bp\_task\_end}]
+  \end{description}
+\item
+  Any OMPD-related symbols needed by the debugger must have \texttt{C} linkage.
+\end{enumerate}
+
+%% \begin{comment}
+%% A debugger can control the level at which OpenMP runtime support for tools 
+%%is activated by invoking
+
+
+%% \begin{quote}
+%% \begin{lstlisting}
+%% int ompd_enable(
+%%   ompd_enable_setting_t setting
+%% );
+%% \end{lstlisting}
+%% \end{quote}
+
+%% \noindent 
+%% To disable all OMPT support for tools, a debugger calls 
+%%\verb|ompd_enable(false)|.
+%% To enable support for tools, 
+%% a debugger  calls \verb|ompd_enable(true)|.
+%% With this setting specified, an OpenMP runtime will maintain runtime state 
+%%(as described in~\ref{sec:states}) and support all OMPT tool-facing inquiry 
+%%functions (as described in Section~\ref{sec:inquiry}). 
+
+%% When \verb|ompd_enable| is called, its effect is not necessarily 
+%%instantaneous. A call to enable or disable tool support will take effect at a 
+%%clean point.
+%% % (as described in Section~\ref{sec:init}).
+
+%% Upon a call to \verb|ompd_enable(true)|, if has not already been enabled, an 
+%%OpenMP runtime may invoke a tool's \verb|ompt_initialize| callback at the 
+%%next 
+%%clean point.
+%% Upon a call to \verb|ompd_enable| with  \verb|false| as an argument,  if a  
+%%tool has already been initialized and the tool
+%% has registered a callback for \verb|ompt_event_runtime_shutdown|, the 
+%%shutdown callback may occur no earlier than the next clean point.
+
+%% If a tool is already enabled before a call to \verb|ompd_enable(true)|, a 
+%%call to \verb|ompt_enable_complete| occurs before the call to 
+%%\verb|ompd_enable|  returns. 
+%% If no tool is present or it has already been disabled, the call to 
+%%\verb|ompt_enable_complete| occurs before the call to \verb|ompd_enable|  
+%%returns.
+%% A debugger can set a breakpoint in  \verb|ompt_enable_complete|  to observe 
+%%when a tool has been enabled or disabled.
+%% \end{comment}
+\clearpage

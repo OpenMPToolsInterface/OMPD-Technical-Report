@@ -1,0 +1,27 @@
+\section{Address Space and Thread Settings}
+
+The functions \verb|ompd_get_num_procs| and
+\verb|ompd_get_thread_limit| are third-party versions of the OpenMP
+runtime functions \verb|omp_get_num_procs| and \verb|omp_get_thread_limit|.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_num_procs (
+  ompd_address_space_handle_t  *handle,                             /* IN */
+  ompd_tword_t                 *val                                /* OUT */
+); 
+
+ompd_rc_t ompd_get_thread_limit (
+  ompd_address_space_handle_t  *handle,                             /* IN */
+  ompd_tword_t                 *val                                /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+
+The \verb|ompd_get_num_procs| function returns the number of
+processors available to the device associated with the address space
+\verb|handle| in \verb|*val|.
+
+The \verb|ompd_get_thread_limit| function returns the maximum number
+of OpenMP threads available on the device associated with the address
+space \verb|handle| in \verb|*val|.

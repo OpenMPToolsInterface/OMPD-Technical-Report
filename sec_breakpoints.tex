@@ -1,0 +1,272 @@
+\section{Breakpoint Locations for Managing Parallel Regions and Tasks}
+\label{breakpoint-locations:sec}
+
+Neither a debugger nor an OpenMP runtime system know what
+application code a program will launch as parallel regions
+or tasks until the program invokes the runtime system and
+provides a code address as an argument.
+To help a debugger control the execution of an OpenMP program
+launching parallel regions or tasks,
+%%%% OMPD provides a routine that the debugger can invoke to 
+%%%% determine where to place breakpoints. 
+the OpenMP runtime must define a number of routines in which
+the debugger may plant breakpoints to receive notification of
+particular events.
+The runtime is expected to call these routines when these events occur
+\emph{and} data collection for OMPD is
+enabled (see~\S\ref{runtime-interface:sec}).
+
+\paragraph{Advice to implementors} The debugger needs to be able to detect 
+the beginning of OpenMP runtime code.
+Especially inline generated runtime code should be built without source line
+information.
+
+\begin{notes}
+Ariel: What does this last sentence mean?
+
+John: I think the intention here was to reflect that if the OpenMP
+is built with line number information then a ``step into'' operation
+in the debugger might step into the OpenMP runtime function
+instead of ``step over'' the function.
+Like with other runtime library functions, ``step into'' should act like
+``step over'' for the OpenMP runtime.
+In essence, we need a way to let the debugger know that the OpenMP runtime
+is not part of the user's source code, and one way of doing that is to
+not generate line number information for the OpenMP runtime code.
+However, I'm not sure that's the best way of doing it.
+
+Ariel:
+What's the use case?
+If we've hit the enter breakpoint we can find out what user code
+is going to be executed by getting the function for the region.
+The debugger can plant a breakpoint there and let the target run.
+
+Or is the case that the user is stepping through his code and
+steps into a function call that is part of the OpenMP runtime,
+and we want to know that to zoom past that to the user code?
+I.e., the problem is knowing what code is OpenMP code?
+If the user continues stepping far enough the frame information for the thread
+should indicate whether the routine is OpenMP code.
+
+Is the stack exit/reentry information set up for all entries to OpenMP,
+or only for those entries that result in executing user code?
+E.g., if the user's code call \texttt{omp\_get\_thread\_num},
+is the stack exit/reentry information set up?  Or is it only for
+things like handle a parallel region construct?
+
+So what OpenMP code are we wanting to identify?
+
+Another thought:
+if the user is stepping by source line, then if the OpenMP code is inlined,
+where would we expect the debugger to advance to?
+Is this is what Joachim is getting at by suggesting that there be
+no line numbers for the generated code?
+If the inlined code includes a call, can we detect
+that the destination of the call is OpenMP?
+Well, we may be able to answer that is the branch is to what we
+know is the OpenMP runtime library.
+
+Bottom line: what we want to do about this `Advice to implementors'?
+
+\end{notes}
+
+\subsection{Parallel Regions}
+
+The OpenMP runtime must call \texttt{ompd\_bp\_parallel\_begin}
+when a new parallel region is launched.
+The call should  occur after a task encounters a parallel construct,
+but before any implicit task starts to execute the parallel
+region's work.
+The type signature for \texttt{ompd\_bp\_parallel\_begin} is:
+\begin{quote}
+\begin{lstlisting}
+void ompd_bp_parallel_begin ( void );
+\end{lstlisting}
+\end{quote}
+\labeldef{bp-parallel-begin:def}
+
+When the debugger gains control when the breakpoint is triggered,
+the debugger can map the the operating system thread to an OpenMP
+thread handle using
+\refdef{\texttt{ompd\_get\_thread\_handle}}{get-thread-handle:def}.
+At this point the handle returned by
+\refdef{\texttt{ompd\_get\_top\_parallel\_region}}{get-top-parallel-region:def}
+is that of the new parallel region.
+The debugger can find the entry point of the user code that
+the new parallel region will execute by passing the parallel handle region
+to \refdef{\texttt{get\_parallel\_function}}{get-parallel-function:def}.
+The actual number of threads, rather than the requested number of threads,
+in the team is returned by
+\refdef{\texttt{ompd\_get\_num\_threads}}{get-num-threads:def}.
+The task handle returned by
+\refdef{\texttt{ompd\_get\_top\_task\_region}}{get-top-task-region:def}
+will be that of the task encountering the parallel construct.
+The `reenter runtime' address in the information returned by
+\refdef{\texttt{ompd\_get\_task\_frame}}{get-task-frame:def}
+will be that of the stack frame where the thread entered the OpenMP
+runtime to handle the parallel construct.
+The `exit runtime' address will be for the stack frame where the thread
+left the OpenMP runtime to execute the user code that encountered
+the parallel construct.
+
+When a parallel region finishes, the OpenMP runtime will call
+the \texttt{ompd\_bp\_parallel\_end} routine:
+\begin{quote}
+\begin{lstlisting}
+void ompd_bp_parallel_end ( void );
+\end{lstlisting}
+\end{quote}
+\labeldef{bp-parallel-end:def}
+At this point the debugger can map the operating system thread that
+hit the breakpoint to an OpenMP thread handle using
+\refdef{\texttt{ompd\_get\_thread\_handle}}{get-thread-handle:def}.
+\refdef{\texttt{ompd\_get\_top\_parallel\_region}}{get-top-parallel-region:def}
+returns the handle of the terminating parallel region.
+\refdef{\texttt{ompd\_get\_top\_task\_region}}{get-top-task-region:def}
+returns the handle of the task that encountered the
+parallel construct that initiated the parallel region just
+terminating.
+The `reenter runtime' address in the frame information returned by
+\refdef{\texttt{ompd\_get\_task\_frame}}{get-task-frame:def}
+will be that for the stack frame in which the thread entered the
+OpenMP runtime to start the parallel construct just terminating.
+The `exit runtime' address will refer to the stack frame where the
+thread left the OpenMP runtime to execute the user code that
+invoked the parallel construct just terminating.
+
+Both the begin and end events are raised once per region,
+and not once for each thread per region.
+
+
+%% \begin{comment}
+%% The OpenMP runtime
+%% \texttt{void ompd\_bp\_parallel\_pre\_execute ( void );}
+%%   The OpenMP runtime shall call this routine after a task encounters
+%%   a parallel construct but before any implicit task starts to execute
+%%   the parallel region's work.
+%%   \footnote{What information do we expect the debugger to be able to get
+%%   when this event is triggered?
+%%   This event appears to correspond to the OMPT
+%%   \texttt{ompt\_event\_parallel\_begin} event.
+%%   In the case of OMPT, the registered callback for this event is supplied
+%%   with extra information by the OpenMP runtime.
+%%   This is the prototype of the callback:
+%%   \begin{quote}
+%%   \texttt{typedef (*ompt\_new\_parallel\_callback\_t ( /* for new parallel 
+%%*/\\
+%%     \hspace*{16ex}ompt\_task\_id\_t   parent\_task\_id,  /* ID of parent 
+%%task */\\
+%%     \hspace*{16ex}ompt\_frame\_t  *parent\_task\_frame, /* frame data if 
+%%parent task */\\
+%%     \hspace*{16ex}ompt\_parallel\_id\_t parallel\_id, /* ID of parallel 
+%%region */\\
+%%     \hspace*{16ex}uint32\_t requested\_team\_size, /* requested number of 
+%%threads */\\
+%%     \hspace*{16ex}void *parallel\_function   /* pointer to outlined function 
+%%*/\\
+%%     );
+%%   }
+%%   \end{quote}
+%%   See \S3.1 and \S{}A.3 of the OMPT TR2.
+%%   How do we expect the debugger to get this information?
+%%   Do we want to make the prototype of this BP function match that
+%%   of \texttt{ompt\_new\_parallel\_callback\_t}?}
+%%   \marginpar{see footnote \thefootnote}
+%% \begin{quote}
+%% \begin{lstlisting}
+%% void ompd_bp_parallel_pre_execute ( void );
+%% void ompd_bp_parallel_post_execute ( void );
+%% void ompd_bp_task_pre_execute ( void );
+%% void ompd_bp_task_post_execute ( void );
+%% \end{lstlisting}
+%% \end{quote}
+%% \end{comment}
+
+%% \begin{comment}
+%% The \verb|ompd_get_breakpoints| routine will fill in an  
+%%\verb|ompd_breakpoints_t| structure with pointers to code locations where the 
+%%debugger can place breakpoints to intercept execution just before the OpenMP 
+%%runtime launches a task or parallel region, and just after execution of a 
+%%parallel region or task completes. 
+%% \begin{quote}
+%% \begin{lstlisting}
+%% typedef struct ompd_breakpoints_s {
+%%   ompd_taddr_t parallel_pre_execute;
+%%   ompd_taddr_t parallel_post_execute;
+%%   ompd_taddr_t task_pre_execute;
+%%   ompd_taddr_t task_post_execute;
+%% } ompd_breakpoints_t;
+
+%% ompd_rc_t ompd_get_breakpoints(
+%%   ompd_context_t *context,  /* debugger handle for the target */
+%%   ompd_breakpoints_t *bkpt_locations
+%% );
+%% \end{lstlisting}
+%% \end{quote}
+%% \end{comment}
+
+%% \begin{comment}
+%% When the debugger gains control as the 
+%% \verb|ompd_bp_parallel_pre_execute| code location breakpoint  triggers,
+%% the debugger can determine what user code the parallel region will
+%% execute by mapping the operating system thread that triggered the
+%% breakpoint to an OpenMP thread handle using \verb|ompd_get_thread_handle|.
+%% It can then map the thread handle to a parallel region handle using
+%% \verb|ompd_get_top_parallel_region|, and then using
+%% \verb|ompd_get_parallel_function| to determine the entry point
+%% for the user code that the parallel region will execute. 
+
+%% Similarly, when the debugger gains control as a breakpoint
+%% at the  \verb|ompd_task_pre_execute| code location  triggers, 
+%% the debugger can determine what user task code will execute
+%% by mapping a native operating system thread to an OpenMP thread handle 
+%% using \verb|ompd_get_thread_handle|.
+%% As before, the debugger can then map the thread handle to a parallel
+%% region handle using \verb|ompd_get_top_task_region|, and then using
+%% \verb|ompd_get_task_function| to determine the entry point for
+%% the user tasking code.
+
+%% Each of these breakpoints is triggered only once per parallel region,
+%% not once per thread in a parallel region.
+%% The \verb|ompd_bp_task_pre_execute| and
+%% \verb|ompd_bp_task_post_execute| breakpoints may be triggered
+%% in different threads if a task executes on a different thread
+%% then where it was launched.
+%% \end{comment}
+
+\subsection{Task Regions}
+
+When starting a new task region, the OpenMP runtime system
+calls \texttt{ompd\_bp\_task\_begin}:
+\begin{quote}
+\begin{lstlisting}
+void ompd_bp_task_begin ( void );
+\end{lstlisting}
+\end{quote}
+\labeldef{bp-task-begin:def}
+The OpenMP runtime system will call this routine after the task
+construct is encountered, but before the new explicit task starts.
+When the breakpoint is triggered the debugger can map the operating
+thread to an OpenMP handle using
+\refdef{\texttt{ompd\_get\_thread\_handle}}{get-thread-handle:def}.
+\refdef{\texttt{ompd\_get\_top\_task\_region}}{get-top-task-region:def}
+returns the handle of the new task region.
+The entry point of the user code to be executed by the new task
+from returned from
+\refdef{\texttt{ompd\_get\_task\_function}}{get-task-function:def}.
+
+When a task region completes, the OpenMP runtime system
+calls the \texttt{ompd\_bp\_task\_end} function:
+\begin{quote}
+\begin{lstlisting}
+void ompd_bp_task_end ( void );
+\end{lstlisting}
+\end{quote}
+\labeldef{bp-task:end}
+As above, when the breakpoint is hit the debugger can use
+\refdef{\texttt{ompd\_get\_thread\_handle}}{get-thread-handle:def}
+to map the triggering operating system thread to the corresponding
+OpenMP thread handle.
+At this point
+\refdef{\texttt{ompd\_get\_top\_task\_region}}{get-top-task-region:def}
+returns the handle for the terminating task.

@@ -1,0 +1,541 @@
+\section{Handle Management}
+
+Each OMPD call that is dependent on some context must provide this
+context via a handle.
+There are handles for address spaces, threads, parallel regions, and tasks.
+Handles are guaranteed to be constant for the
+duration of the construct they represent.
+This section describes function interfaces for extracting
+handle information from the OpenMP runtime system.
+
+\subsection{Address Space Handles}
+
+The debugger obtains an address space handle when it initializes
+a session on a live process or core file by calling
+\refdef{\texttt{ompd\_process\_initialize}}{process-initialize:def}.
+On return from \verb|ompd_process_initialize| the address
+space handle is owned by the debugger.
+
+When the debugger is finished with the target address space handle it
+should call \texttt{ompd\_release\_address\_space\_handle} to release
+the handle and give the OMPD implementation the opportunity to release
+any resources it may have related to the target.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_release_address_space_handle (
+  ompd_address_space_handle_t  *handle                      /* IN */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{release-address-space-handle:def}
+
+
+\subsection{Thread Handles}
+
+\paragraph{Retrieve handles for all OpenMP threads.}
+The \verb|ompd_get_threads| operation enables the debugger
+to obtain pointers to handles for all OpenMP threads associated
+with an address space handle.
+A successful invocation of  \verb|ompd_get_threads| returns
+a pointer to a vector of pointers to handles in \verb|*thread_handle_vector|
+and returns the number of handle pointers in \verb|*num_handles|.
+This call yields meaningful results only if all OpenMP threads in
+the target process are stopped;
+otherwise, the OpenMP runtime may be creating and/or destroying
+threads during or after the call, rendering useless the
+vector of handles returned.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_threads (
+  ompd_address_space_handle_t  *handle,                     /* IN */
+  ompd_thread_handle_t       ***thread_handle_vector,      /* OUT */
+  int                          *num_handles                /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-threads:def}
+
+The \texttt{num\_handles} pointer argument must be valid.
+The \texttt{thread\_handle\_vector} pointer argument may be NULL,
+in which case the number of handles that would have been returned
+had the argument not been NULL is returned in \texttt{*num\_handles}.
+This allows the debugger to find out how many OpenMP threads are
+running in the address space when it is not interested in the handles 
+themselves.
+
+The OMPD DLL gets the memory required for the vector of pointers to thread 
+handles using the memory allocation routine in the callbacks it received during
+the call to \refdef{\texttt{ompd\_initialize}}{initialize:def}. If the OMPD 
+implementation needs to allocate heap memory for the thread handles, it must 
+use the callbacks to acquire this memory. On return, the vector and the thread 
+handles are `owned' by the debugger, and the debugger is responsible for 
+releasing them when they are no longer required.
+
+The thread handles must be released by calling 
+\refdef{\texttt{ompd\_release\_thread\_handle}}{release-thread-handle:def}.
+The vector was allocated by the OMPD implementation using the allocation 
+routine in the callbacks it received during
+initialization (see \refdef{\texttt{ompt\_initialize}}{initialize:def});
+the debugger must deallocate the vector in a compatible manner.
+
+\paragraph{Retrieve handles for OpenMP threads in a parallel region.}
+The  \verb|ompd_get_thread_in_parallel| operation enables the debugger
+to obtain handles for all OpenMP threads associated with a parallel region.
+A successful invocation of  \verb|ompd_get_thread_in_parallel|
+returns a pointer to a vector of pointers to thread handles in
+\verb|*thread_handle_vector|,
+and returns the number of handles in \verb|*num_handles|.
+This call yields meaningful results only if all OpenMP threads
+in the parallel region are stopped; otherwise, the OpenMP runtime
+may be creating and/or destroying threads during or after the call,
+rendering useless the vector of handles returned.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_thread_in_parallel (
+  ompd_parallel_handle_t   *parallel_handle,                        /* IN */
+  ompd_thread_handle_t   ***thread_handle_vector,                  /* OUT */
+  int                      *num_handles                            /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-thread-in-parallel:def}
+The \texttt{num\_handles} pointer argument must be valid.
+The \texttt{thread\_handle\_vector} pointer argument may be NULL, in which
+case the number of handles that would have been returned had the argument
+not been NULL is returned in \texttt{*num\_handles}.
+
+The OMPD must obtain the memory for the vector of pointers to thread handles
+using the memory allocation callback function that was passed to it
+during \refdef{\texttt{ompd\_initialize}}{initialize:def}.
+If the OMPD implementation needs to allocate heap memory for the
+thread handles it must use the callbacks to acquire this memory.
+After the call the vector and the thread handles are `owned' by the debugger,
+which is responsible for releasing them.
+The thread handles must be released by calling
+\refdef{\texttt{ompd\_thread\_handle}}{release-thread-handle:def}.
+The vector was allocated by the OMPD implementation using the allocation
+routine in the callbacks; the debugger must deallocate  the vector
+in a compatible manner.
+
+\paragraph{Retrieve the handle for the OpenMP master thread in a parallel 
+region.}
+The  \verb|ompd_get_master_thread_in_parallel| operation
+enables the debugger to obtain 
+a handle for the OpenMP master thread in a parallel region. 
+A successful invocation of \verb|ompd_get_master_thread_in_parallel|
+returns a handle
+for the thread that encountered the parallel construct. This call yields
+meaningful results only if an OpenMP thread in the parallel region is
+stopped; otherwise, the parallel region is not guaranteed to be alive. 
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_master_thread_in_parallel (
+   ompd_parallel_handle_t  *parallel_handle,                        /* IN */
+   ompd_thread_handle_t   **thread_handle                          /* OUT */
+); 
+\end{lstlisting}
+\end{quote}
+\labeldef{get-master-thread-in-parallel:def}
+
+On success \texttt{ompd\_get\_master\_thread\_in\_parallel}
+returns \texttt{ompd\_rc\_ok}.
+A pointer to the thread handle is returned in \texttt{*thread\_handle}.
+After the call the thread handle is owned by the debugger,
+which must release it when it is no longer required by calling
+\refdef{\texttt{ompd\_release\_thread\_handle}}{release-thread-handle:def}.
+
+\paragraph{Release a thread handle.}
+Thread handles are opaque to the debugger, which therefore cannot
+release them directly.
+Instead, when the debugger is finished with a thread handle it
+must pass it to the OMPD \texttt{ompd\_release\_thread\_handle}
+routine for disposal.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_release_thread_handle (
+  ompd_thread_handle_t  *thread_handle                              /* IN */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{release-thread-handle:def}
+
+\paragraph{Compare thread handles.}
+The internal structure of thread handles is opaque to the debugger.
+While the debugger can easily compare pointers to thread handles,
+it cannot determine whether handles of two different addresses
+refer to the same underlying thread. The following function can be used to 
+compare thread handles.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_thread_handle_compare (
+  ompd_thread_handle_t   *thread_handle_1,                          /* IN */
+  ompd_thread_handle_t   *thread_handle_2,                          /* IN */
+  int                    *cmp_value                                /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{thread-handle-compare:def}
+On success, \texttt{ompd\_thread\_handle\_compare} returns in
+\texttt{*cmp\_value} a signed integer value that indicates how
+the underlying threads compare:
+a value less than, equal to, or greater than 0 indicates that
+the thread corresponding to \texttt{thread\_handle\_1} is,
+respectively, less than, equal to, or greater than that corresponding
+to \texttt{thread\_handle\_2}.
+
+\begin{notes}
+ilaguna: do we need to give intuition about what we mean by thread1 < thread2 
+(or vice versa)? Will the OMPD DLL maintain a total order or a partial order of 
+thread handles? If thread1 < thread2, and thread2 < thread3, is thread1 < 
+thread3 or can thread1 > thread3?
+\end{notes}
+
+For OMPD implementations that always have a single, unique, underlying
+thread handle for a given thread, this operation reduces to a simple
+comparison of the pointers.
+However, other implementations may take a different approach,
+and therefore the only reliable way of determining whether two different
+pointers to thread handles refer the same or distinct threads is to use
+\texttt{ompd\_thread\_handle\_compare}.
+
+Allowing thread handles to be compared allows the debugger to hold
+them in ordered collections.
+The means by which thread handles are ordered is implementation-defined.
+
+\paragraph{String id.}
+The \texttt{ompd\_get\_thread\_handle\_string\_id} function returns a string
+that contains a unique printable value that identifies the thread.
+The string should be a single sequence of alphanumeric or underscore
+characters, and NULL terminated.
+\begin{notes}
+ilaguna: Why allowing only alphanumeric or underscore characters? As an 
+implementer I may want to use colon or slash characters for more structured 
+names.
+\end{notes}
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_thread_handle_string_id (
+  ompd_thread_handle_t   *thread_handle,                            /* IN */
+  char                  **string_id                                /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-thread-handle-string-id:def}
+
+The OMPD implementation allocates the string returned in \texttt{*string\_id}
+using the allocation routine in the callbacks passed to it
+during initialization.
+On return the string is owned by the debugger, which is responsible
+for deallocating it.
+
+The contents of the strings returned for thread handles
+which compare as equal with
+\refdef{\texttt{ompd\_thread\_handle\_compare}}{thread-handle-compare:def}
+must be the same.
+
+\subsection{Parallel Region Handles}
+
+
+\paragraph{Retrieve the handle for the innermost parallel region for an OpenMP 
+thread.}
+The  operation \verb|ompd_get_top_parallel_region|
+enables the debugger to obtain a pointer to the parallel handle
+for the innermost, or topmost,
+parallel region associated with an OpenMP thread.
+This call is meaningful only if the thread whose handle is provided is stopped.
+ 
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_top_parallel_region (
+  ompd_thread_handle_t        *thread_handle,                       /* IN */
+  ompd_parallel_handle_t     **parallel_handle                     /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-top-parallel-region:def}
+The parallel handle must be released by calling
+\refdef{\texttt{ompd\_release\_parallel\_handle}}{release-parallel-handle:def}.
+ 
+\paragraph{Retrieve the handle for an enclosing parallel region.}
+The  \verb|ompd_get_enclosing_parallel_handle|  operation enables
+the debugger to obtain a pointer to the parallel handle for the parallel region
+enclosing the parallel region specified by \verb|parallel_handle|.
+This call is meaningful only if at least one thread in the parallel
+region is stopped.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_enclosing_parallel_handle (
+  ompd_parallel_handle_t        *parallel_handle,                   /* IN */
+  ompd_parallel_handle_t       **enclosing_parallel_handle         /* OUT */
+);
+\end{lstlisting}
+\labeldef{get-enclosing-parallel-handle:def}
+\end{quote}
+
+On success \texttt{ompd\_get\_enclosing\_parallel\_handle}
+returns \texttt{ompd\_rc\_ok}.
+A pointer to the parallel handle for the enclosing region is
+returned in \texttt{*enclosing\_parallel\_handle}.
+After the call the handle is owned by the debugger,
+which must release it when it is no longer required by calling
+\refdef{\texttt{ompd\_release\_parallel\_handle}}{release-parallel-handle:def}.
+
+\paragraph{Retrieve the handle for the parallel region enclosing a task.}
+The  \verb|ompd_get_task_parallel_handle|  operation enables
+the debugger to obtain a pointer to the parallel handle for the parallel region
+enclosing the task region specified by \verb|task_handle|.
+This call is meaningful only if at least one thread in the parallel
+region is stopped.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_task_parallel_handle (
+  ompd_task_handle_t            *task_handle,                       /* IN */
+  ompd_parallel_handle_t       **task_parallel_handle              /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-task-parallel-handle:def}
+On success \texttt{ompd\_get\_task\_parallel\_handle}
+returns \texttt{ompd\_rc\_ok}.
+A pointer to the parallel regions handle
+is returned in \texttt{*task\_parallel\_handle}.
+The parallel handle is owned by the debugger, which must release it by calling
+\refdef{\texttt{ompd\_release\_parallel\_handle}}{release-parallel-handle:def}.
+
+\paragraph{Release a parallel region handle.}
+Parallel region handles are opaque to the debugger, which therefore
+cannot release them directly.
+Instead, when the debugger is finished with a parallel region handle
+it must must pass it to the OMPD \texttt{ompd\_release\_parallel\_handle}
+routine for disposal.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_release_parallel_handle (
+  ompd_parallel_handle_t  *parallel_handle                          /* IN */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{release-parallel-handle:def}
+
+\paragraph{Compare parallel region handles.}
+The internal structure of parallel region handles is opaque to the debugger.
+While the debugger can easily compare pointers to parallel region handles,
+it cannot determine whether handles at two different addresses refer to the
+same underlying parallel region.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_parallel_handle_compare (
+  ompd_parallel_handle_t  *parallel_handle_1,                       /* IN */
+  ompd_parallel_handle_t  *parallel_handle_2,                       /* IN */
+  int                     *cmp_value                               /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{parallel-handle-compare:def}
+On success, \texttt{ompd\_parallel\_handle\_compare} returns in
+\texttt{*cmp\_value} a signed integer value that indicates how
+the underlying parallel regions compare:
+a value less than, equal to, or greater than 0 indicates that
+the region corresponding to \texttt{parallel\_handle\_1} is,
+respectively, less than, equal to, or greater than that corresponding
+to \texttt{parallel\_handle\_2}.
+
+For OMPD implementations that always have a single, unique, underlying
+parallel region handle for a given parallel region,
+this operation reduces to a simple comparison of the pointers.
+However, other implementations may take a different approach,
+and therefore the only reliable way of determining whether two different
+pointers to parallel regions handles refer the same or distinct
+parallel regions is to use \texttt{ompd\_parallel\_handle\_compare}.
+
+Allowing parallel region handles to be compared allows the debugger to hold
+them in ordered collections.
+The means by which parallel region handles are ordered is
+implementation-defined.
+
+\paragraph{String id.}
+The \texttt{ompd\_get\_parallel\_handle\_string\_id}
+function returns a string that contains a unique printable
+value that identifies the parallel region.
+The string should be a single sequence of alphanumeric or underscore
+characters, and NULL terminated.
+\begin{notes}
+	ilaguna: Why allowing only alphanumeric or underscore characters? As an 
+	implementer I may want to use colon or slash characters for more structured 
+	names.
+\end{notes}
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_parallel_handle_string_id (
+  ompd_parallel_handle_t   *parallel_handle,                        /* IN */
+  char                    **string_id                              /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-parallel-handle-string-id:def}
+
+The OMPD implementation allocates the string returned in \texttt{*string\_id}
+using the allocation routine in the callbacks passed to it
+during initialization.
+On return the string is owned by the debugger, which is responsible
+for deallocating it.
+
+The contents of the strings returned for parallel regions handles
+which compare as equal with
+\refdef{\texttt{ompd\_parallel\_handle\_compare}}{parallel-handle-compare:def}
+must be the same.
+
+\subsection{Task Handles}
+\label{task-handles:sec}
+\paragraph{Retrieve the handle for the innermost task for an OpenMP thread.}
+The  debugger uses the operation  \verb|ompd_get_top_task_region|
+to obtain a pointer to the task handle for the innermost, or topmost,
+task region associated with an OpenMP thread.
+This call is meaningful only if the thread whose handle is provided is stopped.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_top_task_region (
+  ompd_thread_handle_t        *thread_handle,                       /* IN */
+  ompd_task_handle_t         **task_handle                         /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-top-task-region:def}
+The task handle must be released by calling
+\refdef{\texttt{ompd\_release\_task\_handle}}{release-task-handle:def}.
+
+\paragraph{Retrieve the handle for an enclosing task.}
+The  debugger uses \verb|ompd_get_ancestor_task_region| to obtain
+a pointer to the task handle for the task region enclosing the
+task region specified by \verb|task_handle|.
+This call is meaningful only if the thread executing the task specified by
+\verb|task_handle|  is stopped.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t  ompd_get_ancestor_task_region (
+  ompd_task_handle_t         *task_handle,                          /* IN */
+  ompd_task_handle_t        **parent_task_handle                   /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-ancestor-task-region:def}
+The task handle must be released by calling
+\refdef{\texttt{ompd\_release\_task\_handle}}{release-task-handle:def}.
+ 
+\paragraph{Retrieve implicit task handle for a parallel region.}
+The   \verb|ompd_get_implicit_task_in_parallel|  operation enables
+the debugger to obtain a vector of pointers to task handles for all
+implicit tasks associated with a parallel region.
+This call is meaningful only if all threads associated
+with the parallel region are stopped.
+
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_implicit_task_in_parallel (
+  ompd_parallel_handle_t          *parallel_handle,                 /* IN */
+  ompd_task_handle_t            ***task_handle_vector,             /* OUT */
+  int                             *num_handles                     /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-implicit-task-in-parallel:def}
+The OMPD must use the memory allocation callback to obtain the
+memory for the vector of pointers to task handles returned by the operation.
+If the OMPD implementation needs to allocate heap memory for the
+task handles it returns, it must use the callbacks to acquire this memory.
+After the call the vector and the task handles are `owned' by the debugger,
+which is responsible for deallocating them.
+The task handles must be released calling
+\refdef{\texttt{ompd\_release\_task\_handle}}{release-task-handle:def}.
+The vector was allocated by the OMPD implementation using the
+allocation routine passed to it during the call to
+\refdef{\texttt{ompd\_initialize}}{initialize:def}.
+The debugger itself must deallocate the vector in a compatible manner.
+
+\paragraph{Release a task handle.}
+Task handles are opaque to the debugger, which therefore cannot release
+them directly.
+Instead, when the debugger is finished with a task handle it must
+pass it to the OMPD \texttt{ompd\_release\_task\_handle} routine
+for disposal.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_release_task_handle (
+  ompd_task_handle_t  *task_handle                                  /* IN */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{release-task-handle:def}
+
+\paragraph{Compare task handles.}
+The internal structure of task handles is opaque to the debugger.
+While the debugger can easily compare pointers to task handles,
+it cannot determine whether handles at two different addresses refer
+to the same underlying task.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_task_handle_compare (
+  ompd_task_handle_t  *task_handle_1,                               /* IN */
+  ompd_task_handle_t  *task_handle_2,                               /* IN */
+  int                 *cmp_value                                   /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{task-handle-compare:def}
+On success, \texttt{ompd\_task\_handle\_compare} returns in
+\texttt{*cmp\_value} a signed integer value that indicates how
+the underlying tasks compare:
+a value less than, equal to, or greater than 0 indicates that
+the task corresponding to \texttt{task\_handle\_1} is,
+respectively, less than, equal to, or greater than that corresponding
+to \texttt{task\_handle\_2}.
+
+For OMPD implementations that always have a single, unique, underlying
+task handle for a given task,
+this operation reduces to a simple comparison of the pointers.
+However, other implementations may take a different approach,
+and therefore the only reliable way of determining whether two different
+pointers to task handles refer the same or distinct
+task is to use \texttt{ompd\_task\_handle\_compare}.
+
+Allowing task handles to be compared allows the debugger to hold
+them in ordered collections.
+The means by which task handles are ordered is implementation-defined.
+
+\paragraph{String id.}
+The \texttt{ompd\_get\_task\_handle\_string\_id}
+function returns a string that contains a unique printable
+value that identifies the task.
+The string should be a single sequence of alphanumeric or underscore
+characters, and NULL terminated.
+\begin{notes}
+	ilaguna: Why allowing only alphanumeric or underscore characters? As an 
+	implementer I may want to use colon or slash characters for more structured 
+	names.
+\end{notes}
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t ompd_get_task_handle_string_id (
+  ompd_task_handle_t   *task_handle,                                /* IN */
+  char                **string_id                                  /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-task-handle-string-id:def}
+
+The OMPD implementation allocates the string returned in \texttt{*string\_id}
+using the allocation routine in the callbacks passed to it
+during initialization.
+On return the string is owned by the debugger, which is responsible
+for deallocating it.
+
+The contents of the strings returned for task handles
+which compare as equal with
+\refdef{\texttt{ompd\_task\_handle\_compare}}{task-handle-compare:def}
+must be the same.

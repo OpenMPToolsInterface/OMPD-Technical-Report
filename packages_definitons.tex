@@ -1,0 +1,79 @@
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{comment}
+\usepackage{color}
+\usepackage{ifthen}
+\usepackage{lineno}
+\linenumbers
+\usepackage{graphicx}
+\DeclareGraphicsExtensions{.pdf}
+
+\usepackage[final]{pdfpages}
+
+\headheight 0in
+\oddsidemargin 0.25in
+\evensidemargin  0.25in
+\topmargin  -.25in
+
+%\textwidth 6.5in
+\setlength{\textwidth}{\paperwidth}
+\addtolength{\textwidth}{-2.50in}      %% left and right margins
+
+\textheight 9in
+
+\newcommand{\draftNo}{6j}
+
+\newcounter{RWthankscounter}
+\newcounter{LLNLthankscounter}
+
+\usepackage{needspace}
+\usepackage[colorlinks=true,citecolor=blue]{hyper ref}
+\usepackage{url}
+
+\usepackage{xcolor}
+
+\usepackage{listings}
+\lstdefinelanguage{diff}{
+%   morecomment=[f][\color{blue}]{@@},     % group identifier
+  morecomment=[f][\color{red!80!black}]-,         % deleted lines 
+  morecomment=[f][\color{green!60!black}]+,       % added lines
+%   morecomment=[f][\color{magenta}]{---}, % Diff header lines (must appear after +,-)
+%   morecomment=[f][\color{magenta}]{+++},
+}
+\lstdefinestyle{cstyle}{
+  belowcaptionskip=.25\baselineskip,
+  language=diff,
+  showstringspaces=false,
+  basicstyle=\ttfamily,
+  keywordstyle=\bfseries\color{green!60!black},
+  commentstyle=\itshape\color{purple!40!black},
+  columns=fullflexible,
+  keepspaces=true,
+  float,
+  floatplacement=H,
+  belowskip=\smallskipamount,
+  aboveskip=\smallskipamount,
+%   belowskip=-\baselineskip,
+}
+\lstset{style=cstyle}
+\newcommand{\refdef}[2]{\hyperref[#2]{#1}\marginpar{\S{}\ref{#2}, p\pageref{#2}}}
+\newcommand{\labeldef}[1]{\label{#1}}
+\newcommand{\remark}[1]{\footnote{ #1 }}
+
+\newcommand{\add}[1]{{\color{green!60!black} #1 }}
+\newcommand{\rem}[1]{{\color{red!80!black} #1 }}
+
+\newcommand{\descheader}[1]{{\needspace{3\baselineskip}\vspace{1em}\noindent 
+\fbox{#1}}}
+
+% --- Notes setting ------
+\specialcomment{notes}{\begingroup\color{blue}\textbf{NOTE: 
+}\sffamily}{\endgroup}
+\ifthenelse{\isundefined{\withnotes}}{
+	% exclude the comments
+	\excludecomment{notes}
+}{
+	% include the comments
+	%\includecomment{notes}
+}
+% ------------------------

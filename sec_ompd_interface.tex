@@ -1,0 +1,601 @@
+\section{OMPD Interface Type Definitions}
+\label{appendix:ompd-types}
+
+The ompd.h file contains declarations and definitions for OMPD API
+types, structures, and functions.
+
+\subsection{Basic Types}
+
+\begin{quote}
+\begin{lstlisting}
+
+typedef uint64_t ompd_taddr_t;          /* unsigned integer large enough */
+                                        /* to hold a target address or a */
+                                        /* target segment value          */
+typedef int64_t  ompd_tword_t;          /* signed version of ompd_addr_t */
+typedef uint64_t ompd_parallel_id_t;    /* parallel region instance ID   */
+typedef uint64_t ompd_task_id_t;        /* task region instance ID       */
+typedef uint64_t ompd_wait_id_t;        /* identifies what a thread is   */
+                                        /* waiting for                   */
+typedef struct {
+  ompd_taddr_t segment;                 /* target architecture specific  */
+                                        /* segment value                 */
+  ompd_taddr_t address;                 /* target address in the segment */
+} ompd_address_t;
+
+#define OMPD_SEGMENT_UNSPECIFIED  ((ompd_taddr_t) 0)
+#define OMPD_SEGMENT_TEXT         ((ompd_taddr_t) 1)
+#define OMPD_SEGMENT_DATA         ((ompd_taddr_t) 2)
+
+\end{lstlisting}
+\end{quote}
+
+An \verb|ompd_address_t| is a structure that OMPD uses to specify
+target addresses, which may or may not be segmented.  The following
+rules apply:
+\begin{itemize}
+%
+\item
+If the target architecture is not segmented, the OMPD implementation
+should use \verb|OMPD_SEGMENT_UNSPECIFIED| for the segment value.
+%
+\item
+If the target architecture uses simple ``text'' and ``data'' segments,
+which is common on some systems, the OMPD implementation should use
+\verb|OMPD_SEGMENT_TEXT| for the text segment value, and
+\verb|OMPD_SEGMENT_DATA| for the data segment value.
+%
+\item
+The segment value for the NVIDIA\textsuperscript{\textregistered} GPU
+target architecture should use a \verb|ptxStorageKind| enumeration
+value as defined by the CUDA Debugger API.
+%
+This enumeration is defined by the \verb|cudadebugger.h| header file
+contained within a CUDA SDK package.
+%
+%% Included for reference. Not sure if this should be part of the OMPD spec.
+%% 
+%% /*--------------------- Memory Segments (as used in DWARF) 
+%%-------------------*/
+%% 
+%% typedef enum {
+%%     ptxUNSPECIFIEDStorage,
+%%     ptxCodeStorage,
+%%     ptxRegStorage,
+%%     ptxSregStorage,
+%%     ptxConstStorage,
+%%     ptxGlobalStorage,
+%%     ptxLocalStorage,
+%%     ptxParamStorage,
+%%     ptxSharedStorage,
+%%     ptxSurfStorage,
+%%     ptxTexStorage,
+%%     ptxTexSamplerStorage,
+%%     ptxGenericStorage,
+%%     ptxIParamStorage,
+%%     ptxOParamStorage,
+%%     ptxFrameStorage,
+%%     ptxMAXStorage
+%% } ptxStorageKind;
+%
+\item
+Otherwise, the segment value is target architecture specific.
+\end{itemize}
+
+
+\subsection{Operating System Thread Information}
+
+An OpenMP runtime may be implemented on different threading substrates.
+OMPD uses the \verb|ompd_osthread_kind_t| type to describe an operating
+system thread upon which an OpenMP thread is overlaid.
+
+\begin{quote}
+\begin{lstlisting}
+typedef enum {
+  ompd_osthread_pthread,
+  ompd_osthread_lwp,
+  ompd_osthread_winthread
+} ompd_osthread_kind_t;
+\end{lstlisting}
+\labeldef{osthread-kind-t:def}
+\end{quote}
+
+The operating system-specific information can vary in size
+and format, and therefore is not explicitly represented in this API.
+Operating system-specific thread identifiers are passed
+across the interface by reference, that is, by a pointer
+to where the information can be found.
+In addition, the `kind' and size of the information are
+also passed.
+
+When operating system-specific thread identifiers are
+passed as either `in' or `out' parameters, they are
+allocated and owned by the caller, which is responsible
+for their eventual disposal.
+
+\subsection{OMPD Handles}
+\label{ompd-handles:sec}
+
+Each OMPD interface operation that applies to a particular address space,
+thread, parallel region, or task must  explicitly specify the target entity
+for the operation using a \emph{handle}.
+OMPD employs handles for address spaces (for a host or target device),
+threads, parallel regions, and tasks.
+A handle for an entity is constant while the entity itself is live.
+Handles are defined by the OMPD implementation, and are opaque to the
+debugger.
+This is how the \texttt{ompd.h} header file defines these types:
+
+\begin{quote}
+\begin{lstlisting}
+typedef struct _ompd_address_space_handle_s  ompd_address_space_handle_t;
+typedef struct _ompd_thread_handle_s         ompd_thread_handle_t;
+typedef struct _ompd_parallel_handle_s       ompd_parallel_handle_t;
+typedef struct _ompd_task_handle_s           ompd_task_handle_t;
+\end{lstlisting}
+\end{quote}
+
+Defining the externally visible type names in this way introduces
+an element of type safety to the interface, and will help to catch
+instances where incorrect handles are passed by the debugger
+to the OMPD implementation.
+The \texttt{struct}s do not need to be defined at all.
+The OMPD implementation would need to cast incoming (pointers to)
+handles to the appropriate internal, private types.
+
+\subsection{Debugger Contexts}
+\label{debugger-contexts:sec}
+
+The debugger contexts are opaque to the OMPD, and are defined
+in the \texttt{ompd.h} header file as follows:
+
+%% \begin{comment} %by Joachim
+%% \begin{quote}
+%% \begin{lstlisting}
+%% typedef struct _ompd_process_context_s        ompd_process_context_t;
+%% typedef struct _ompd_address_space_context_s  ompd_address_space_context_t;
+%% typedef struct _ompd_thread_context_s         ompd_thread_context_t;
+%% \end{lstlisting}
+%% \end{quote}
+%% \end{comment}
+
+\begin{quote}
+\begin{lstlisting}
+typedef struct _ompd_address_space_context_s  ompd_address_space_context_t;
+typedef struct _ompd_thread_context_s         ompd_thread_context_t;
+\end{lstlisting}
+\end{quote}
+
+\subsection{Return Codes}
+Each OMPD interface operation has a return code.
+The purpose of the each return code is explained
+by the comments in the definition below.
+\begin{quote}
+\begin{lstlisting}
+typedef enum {
+  ompd_rc_ok            =  0, /* operation was successful                 */
+  ompd_rc_unavailable   =  1, /* info is not available (in this context)  */
+  ompd_rc_stale_handle  =  2, /* handle is no longer valid                */
+  ompd_rc_bad_input     =  3, /* bad input parameters (other than handle) */
+  ompd_rc_error         =  4, /* error                                    */
+  ompd_rc_unsupported   =  5, /* operation is not supported               */
+  ompd_rc_needs_state_tracking =  6,
+                              /* needs runtime state tracking enabled     */
+  ompd_rc_incompatible  =  7, /* target is not compatible with this OMPD  */
+  ompd_rc_target_read_error =  8,
+                              /* error reading from the target            */
+  ompd_rc_target_write_error =  9,
+                              /* error writing from the target            */
+  ompd_rc_nomem         = 10, /* unable to allocate memory                */
+} ompd_rc_t;
+\end{lstlisting}
+\labeldef{rc-t:def}
+\end{quote}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\subsection{OpenMP Scheduling}
+\labeldef{openmp-scheduling:def}
+%
+This enumeration defines \verb|ompd_sched_t|, which is the OMPD API
+definition corresponding to the OpenMP enumeration type
+\verb|omp_sched_t| (\S3.2.12 of~\cite{OpenMP}).
+%
+\verb|ompd_sched_t| also defines \verb|ompd_sched_vendor_lo| and
+\verb|ompd_sched_vendor_hi| to define the range of
+implementation-specific \verb|omp_sched_t| values than can be handle
+by the OMPD API.
+%
+\begin{quote}
+\begin{lstlisting}
+typedef enum {
+  ompd_sched_static = 1,
+  ompd_sched_dynamic = 2,
+  ompd_sched_guided = 3,
+  ompd_sched_auto = 4,
+  ompd_sched_vendor_lo = 5,
+  ompd_sched_vendor_hi = 0x7fffffff
+} ompd_sched_t;
+\end{lstlisting}
+\end{quote}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\subsection{OpenMP Proc Binding}
+\labeldef{openmp-proc-binding:def}
+%
+This enumeration defines \verb|ompd_proc_bind_t|, which is the OMPD
+API definition corresponding to the OpenMP enumeration type
+\verb|omp_proc_bind_t| (\S3.2.22 of~\cite{OpenMP}).
+%
+\begin{quote}
+\begin{lstlisting}
+typedef enum {
+  ompd_proc_bind_false = 0,
+  ompd_proc_bind_true = 1,
+  ompd_proc_bind_master = 2,
+  ompd_proc_bind_close = 3,
+  ompd_proc_bind_spread = 4
+} ompd_proc_bind_t;
+\end{lstlisting}
+\end{quote}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+\subsection{Primitive Types}
+%
+This structure contains members that the OMPD implementation can use
+to interrogate the debugger about the ``sizeof'' of primitive types in
+the target address space.
+%
+\begin{quote}
+\begin{lstlisting}
+typedef struct {
+  int sizeof_char;
+  int sizeof_short;
+  int sizeof_int;
+  int sizeof_long;
+  int sizeof_long_long;
+  int sizeof_pointer;
+} ompd_target_type_sizes_t;
+\end{lstlisting}
+\end{quote}
+
+This enumeration of primitive types is used by OMPD to express the primitive
+type of data for target to host conversion.
+
+\begin{quote}
+\begin{lstlisting}
+typedef enum {
+  ompd_type_char        = 0,
+  ompd_type_short       = 1,
+  ompd_type_int         = 2,
+  ompd_type_long        = 3,
+  ompd_type_long_long   = 4,
+  ompd_type_pointer     = 5
+} ompd_target_prim_types_t;
+\end{lstlisting}
+\end{quote}
+
+\subsection{Runtime States}
+
+The OMPD runtime states mirror those in OMPT (see Appendix~A
+of~\cite{ompt-tr2}).
+
+\begin{quote}
+\begin{lstlisting}
+typedef enum {
+  /* work states (0..15) */
+  ompd_state_work_serial           = 0x00,   /* working outside parallel */
+  ompd_state_work_paralle l        = 0x01,   /* working within parallel  */
+  ompd_state_work_reduction        = 0x02,   /* performing a reduction   */
+
+  /* idle (16..31) */
+  ompd_state_idle                  = 0x10,   /* waiting for work         */
+
+  /* overhead states (32..63) */
+  ompd_state_overhead              = 0x20,   /* non-wait overhead        */
+
+  /* barrier wait states (64..79) */
+  ompd_state_wait_barrier          = 0x40,   /* generic barrier          */
+  ompd_state_wait_barrier_implicit = 0x41,   /* implicit barrier         */
+  ompd_state_wait_barrier_explicit = 0x42,   /* explicit barrier         */
+
+  /* task wait states (80..95) */
+  ompd_state_wait_taskwait         = 0x50,   /* waiting at a taskwait    */
+  ompd_state_wait_taskgroup        = 0x51,   /* waiting at a taskgroup   */
+
+  /* mutex wait states (96..111) */
+  ompd_state_wait_lock             = 0x60,   /* waiting for lock         */
+  ompd_state_wait_nest_lock        = 0x61,   /* waiting for nest lock    */  
+  ompd_state_wait_critical         = 0x62,   /* waiting for critical     */
+  ompd_state_wait_atomic           = 0x63,   /* waiting for atomic       */
+  ompd_state_wait_ordered          = 0x64,   /* waiting for ordered      */
+
+  /* misc (112..127) */
+  ompd_state_undefined             = 0x70,   /* undefined thread state    */
+  ompd_state_first                 = 0x71,   /* initial enumeration state */
+} ompd_state_t;
+\end{lstlisting}
+\end{quote}
+\labeldef{state-t:def}
+
+\subsection{Type Signatures for Debugger Callbacks}
+For OMPD to provide information  about the internal state
+of the OpenMP runtime system in a target process or core file,
+it must have a means to extract information from
+the target.
+A target ``process'' may be a ``live'' process or a core file. 
+A target thread may be a ``live'' thread in a process, or a thread in a core 
+file.
+To enable OMPD to extract state information from a target process or core file,
+a debugger supplies OMPD with callback functions to inquire
+about the size of primitive types in the target,
+look up the addresses of symbols,
+as well as read and write memory in the target.
+OMPD then uses these callbacks to implement its interface operations.
+Signatures for the debugger callbacks used by OMPD are given below.
+
+\paragraph{Memory management.}
+The callback signatures below are used to allocate and free
+memory in the debugger's address space.
+The OMPD DLL \emph{must} obtain and release heap memory \emph{only}
+using the callbacks provided to it by the debugger.
+It must \emph{not} call the heap manager directly using \texttt{malloc}.
+For C++ implementations this means the OMPD implementation \emph{must}
+overload the functions \texttt{new}, 
+\texttt{new(throw)}, \texttt{new[]}, \texttt{delete}, \texttt{delete(throw)}, 
+and \texttt{delete[]} in \emph{all} their variants and use the
+debugger-provided callback functions to implement them.
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_dmemory_alloc_fn_t) (
+  ompd_size_t bytes,               /* IN: the number of bytes to allocate */
+  void   **ptr /* OUT: on success, a pointer to the allocated memory here */
+);
+
+typedef ompd_rc_t (*ompd_dmemory_free_fn_t) (
+  void *ptr            /* IN: the address of the memory to be deallocated */
+);
+\end{lstlisting}
+\end{quote}
+
+\paragraph{Context management.}
+The callback signature below is used to map an operating system thread
+handle to a debugger thread context. 
+The OMPD implementation can use this thread context to access thread
+local storage (TLS).
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_get_thread_context_for_osthread_fn_t) (
+  ompd_address_space_context_t  *address_space_context,             /* IN */
+  ompd_osthread_kind_t           kind,                              /* IN */
+  ompd_size_t                    sizeof_osthread,                   /* IN */
+  const void                    *osthread,                          /* IN */
+  ompd_thread_context_t        **thread_context                    /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+On success, the \texttt{ompd\_thread\_context\_t} corresponding
+to the operating system thread identifier \texttt{*osthread}
+of type \texttt{kind} and size \texttt{sizeof\_osthread} is returned
+in \texttt{*thread\_context}.
+The thread context is created, and remains owned, by the debugger.
+The OMPD implementation can assume that the thread context is valid
+for as long as the debugger is holding any references to thread handles
+that may contain the thread context.
+%%% The OMPD implementation must release the thread context when
+%%% it is no longer required by calling the \texttt{release\_thread\_context}
+%%% callback.
+
+\paragraph{Context navigation.}
+The following callback signature is used to ``navigate'' address space
+and thread object relationships.
+
+{\bf Thread context to address space context.}
+Given a thread context, get the address space context for the thread
+and return it in \verb|*address_space_context|. 
+If \verb|thread_context| refers to a host device thread, this function
+returns the context for the host address space.
+If \verb|thread_context| refers to a target device thread, this
+function returns the context for the target device's address space.
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_get_address_space_context_for_thread_fn_t) (
+  ompd_thread_context_t         *thread_context,                   /* IN */
+  ompd_address_space_context_t **address_space_context            /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+
+%% \begin{comment} %by Joachim
+%% {\bf Process context to host device address space context.}
+%% Given a process context, get the address space context for the host
+%% address space and return it in \verb|*address_space_context|. 
+%% \begin{quote}
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_get_address_space_context_for_process_fn_t) (
+%%   ompd_process_context_t        *process_context,                   /* IN */
+%%   ompd_address_space_context_t **address_space_context             /* OUT */
+%% );
+%% \end{lstlisting}
+%% \end{quote}
+%% 
+%% {\bf Thread context to process context.}
+%% Given a thread context, get the process context for the process
+%% containing the thread and return it in \verb|*process_context|.
+%% \begin{quote}
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_get_process_context_for_thread_fn_t) (
+%%   ompd_thread_context_t         *thread_context,                    /* IN */
+%%   ompd_process_context_t       **process_context                   /* OUT */
+%% );
+%% \end{lstlisting}
+%% \end{quote}
+%% 
+%% {\bf Address space context to process context.}
+%% Given an address space context, get the process context for the
+%% process containing the address space and return it in
+%% \verb|*process_context|.
+%% \begin{quote}
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_get_process_context_for_address_space_fn_t) (
+%%   ompd_address_space_context_t  *address_space_context,             /* IN */
+%%   ompd_process_context_t       **process_context                   /* OUT */
+%% );
+%% \end{lstlisting}
+%% \end{quote}
+%% \end{comment}
+
+
+\paragraph{Primitive type size.}
+The callback signature below is used to look up the sizes
+of primitive types in the target address space.
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_tsizeof_prim_fn_t) (
+  ompd_address_space_context_t  *context,                           /* IN */
+  ompd_target_type_sizes_t *sizes             /* OUT: returned type sizes */
+);
+\end{lstlisting}
+\end{quote}
+
+\paragraph{Symbol lookup.}
+The callback signature below is used to look up
+the address of a global symbol in the target.
+The argument \texttt{thread\_context} is optional for global memory access
+and is NULL in this case. 
+If the \texttt{thread\_context} argument is not NULL,
+this will give the thread specific context for the symbol lookup,
+for the purpose of calculating thread local storage (TLS) addresses.
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_tsymbol_addr_fn_t) (
+  ompd_address_space_context_t *address_space_context,              /* IN */
+  ompd_thread_context_t        *thread_context, /* IN: TLS thread or NULL */
+  const char                   *symbol_name,    /* IN: global symbol name */
+  ompd_address_t               *symbol_addr           /* OUT: on success, */
+                                                    /* the symbol address */
+);
+\end{lstlisting}
+\end{quote}
+The symbol name supplied by the OMPD implementation is used verbatim
+by the debugger, and in particular, no name mangling is performed
+prior to the lookup.
+
+%% \begin{comment}
+%% \paragraph{Type lookup.} The callback signature below is used to look up a 
+%%type in the target.
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_ttype_fn_t) (
+%%   ompd_context_t *context,  /* debugger handle for the target */
+%%   const char *type_name,    /* name of the type/structure */
+%%   ompd_ttype_handle_t *ttype_handle  /* a successful call returns the type 
+%%handle here */
+%% );
+%% \end{lstlisting}
+
+%% \paragraph{Type size lookup.} The callback signature below is used to look 
+%%up the size of a type in the target.
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_ttype_sizeof_fn_t) (
+%%   ompd_context_t *context,  /* debugger handle for the target */
+%%   ompd_ttype_handle_t *ttype_handle,    /* handle of the type/structure */
+%%   ompd_tword_t *type_size         /* a successful call returns the type size 
+%%here */
+%% );
+%% \end{lstlisting}
+
+%% \paragraph{Type field offset lookup.} The callback signature below is used 
+%%to look up the offset of a field in a type in the target.
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_ttype_offset_fn_t) (
+%%   ompd_context_t *context,  /* debugger handle for the target */
+%%   ompd_ttype_handle_t *ttype_handle,    /* handle of the type/structure */
+%%   const char *field_name,   /* field of interest in the type/structure */
+%%   ompd_tword_t *field_offset     /* a successful call returns the field 
+%%offset here */
+%% );
+%% \end{lstlisting}
+%% \end{comment}
+
+\paragraph{Memory access.}
+The callback signatures below are used to read or write memory in the target.
+Data transfers are of unstructured bytes; it is the responsibility
+of the OMPD implementation to arrange for any byte swapping as necessary.
+The argument \texttt{thread\_context} is optional for global memory access
+and is NULL in this case. 
+If the argument is not NULL, it identifies the thread specific context
+for the memory access, for the purpose of accessing thread local
+storage (TLS) memory.
+The buffer is allocated and owned by the OMPD implementation.
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_tmemory_read_fn_t) (
+  ompd_address_space_context_t *address_space_context,              /* IN */
+  ompd_thread_context_t        *thread_context, /* IN: TLS thread or NULL */
+  const ompd_address_t         *addr,        /* IN: address in the target */
+  ompd_tword_t                  nbytes,      /* IN: number of bytes to be */
+                                                           /* transferred */
+  void                         *buffer  /* OUT: buffer for data read from */
+                                                            /* the target */
+);
+
+typedef ompd_rc_t (*ompd_tmemory_write_fn_t) (
+  ompd_address_space_context_t *address_space_context,              /* IN */
+  ompd_thread_context_t        *thread_context, /* IN: TLS thread or NULL */
+  const ompd_address_t         *addr,        /* IN: address in the target */
+  ompd_tword_t                  nbytes,      /* IN: number of bytes to be */
+                                                          /* transferred  */
+  const void                   *buffer  /* IN: buffer for date written to */
+                                                            /* the target */
+);
+\end{lstlisting}
+\end{quote}
+
+\paragraph{Data format conversion.}
+The callback signature below is used to convert data from the target 
+address space byte ordering to the host (OMPD implementation) byte ordering,
+and vice versa.
+
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_target_host_fn_t) (
+  ompd_address_space_context_t *address_space_context,              /* IN */
+  const void                   *input,                              /* IN */
+  int                           unit_size,                          /* IN */
+  int                           count,    /* IN: number of primitive type */
+                                                      /* items to process */
+  void                         *output                             /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+The input and output buffers are allocated and owned by the
+OMPD implementation, and it is its responsibility to ensure
+that the buffers are the correct size.
+
+
+%% \begin{comment}
+%% \paragraph{Get error string.}
+%% The callback signature below is used by OMPD to retrieve
+%% an error string from the debugger given an error code.
+
+
+%% \begin{lstlisting}
+%% typedef ompd_rc_t (*ompd_error_string_fn_t) (
+%%   ompd_context_t  *context,         /* IN: debugger handle for the target */
+%%   int              error_code,
+%%   const char     **string
+%% \end{lstlisting}
+%% \end{comment}
+
+\paragraph{Print string.}
+The callback signature below is used by OMPD to have the debugger
+print a string. OMPD should not print directly. 
+\begin{quote}
+\begin{lstlisting}
+typedef ompd_rc_t (*ompd_print_string_fn_t) (
+  const char              *string
+);
+\end{lstlisting}
+\end{quote}
