@@ -44,26 +44,7 @@ ompd_rc_t ompd_get_active_level (
 
 \subsection{OMPT Parallel Region Inquiry Analogues}
 
-The function \verb|ompd_get_parallel_id| is a third-party variant of
-\verb|ompt_get_parallel_id|.
-The \verb|ompd_parallel_id_t| for a parallel region is unique across
-all parallel regions.
-A parallel region is assigned a unique ID when the region is created.
-Tools should not assume that \verb|ompd_parallel_id_t| values for
-adjacent regions are consecutive.  
-The value 0 is reserved to indicate an invalid parallel id.
-
-\begin{quote}
-\begin{lstlisting}
-ompd_rc_t ompd_get_parallel_id (
-  ompd_parallel_handle_t  *parallel_handle,                         /* IN */
-  ompd_parallel_id_t      *id                                      /* OUT */
-);
-\end{lstlisting}
-\end{quote}
-\labeldef{get-parallel-id:def}
-
-\subsection{Parallel Function Entry Point}
+\paragraph{Parallel Function Entry Point}
 
 The \texttt{ompd\_get\_parallel\_function} returns the
 entry point of the code that corresponds to the body of

@@ -219,18 +219,8 @@ ompd_rc_t ompd_is_implicit (
 %
 \subsection{OMPT Task Inquiry Analogues}
 %
-The functions \verb|ompd_get_task_frame| and \verb|ompd_get_task_id|
-are third-party versions of \verb|ompt_get_task_frame| and
-\verb|ompt_get_task_id|, respectively.
-%
-The \verb|ompd_task_id_t| for a task region is unique across all task
-regions.
-%
-A task region is assigned a unique ID when the region is created.
-Tools should not assume that \verb|ompd_task_id_t| values for adjacent
-task regions are consecutive.
-%
-The value 0 is reserved to indicate an invalid task id.
+The function \verb|ompd_get_task_frame|
+ia a third-party versions of \verb|ompt_get_task_frame|.
 %
 \texttt{ompd\_get\_task\_frame} is discussed under Stack Unwinding in
 Section~\ref{stack-unwinding:sec}.
@@ -246,15 +236,6 @@ ompd_rc_t ompd_get_task_frame (
 \end{quote}
 \labeldef{get-task-frame:def}
 %
-\begin{quote}
-\begin{lstlisting}
-ompd_rc_t ompd_get_task_id (
-  ompd_task_handle_t        *task_handle,                           /* IN */
-  ompd_task_id_t            *task_id                               /* OUT */
-);
-\end{lstlisting}
-\end{quote}
-\labeldef{get-task-id:def}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
