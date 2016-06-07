@@ -10,6 +10,8 @@ management scheme the debugger may use.
 If the OMPD DLL is implemented in \texttt{C++}, memory management operators 
 like \texttt{new} and \texttt{delete} in all their variants, \emph{must all} be 
 overloaded and implemented in terms of the callbacks provided by the debugger.
+The OMPD DLL must be coded so that any of its definitions of \texttt{new} or
+\texttt{delete} do not interfere with any defined by the debugger.
 
 In some cases the OMPD DLL will need to allocate memory to
 return results to the debugger. This memory will then be `owned' by the 

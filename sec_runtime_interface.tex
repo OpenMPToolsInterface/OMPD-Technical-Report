@@ -47,18 +47,27 @@ Thus, for example, a 32-bit debugger should be able to debug a 64-bit target
 by loading a 32-bit OMPD that can manage a 64-bit OpenMP runtime.
 
 The OpenMP runtime shall notify the debugger that
-\texttt{ompd\_dll\_locations} is valid by calling:
+\texttt{ompd\_dll\_locations} is valid by allowing execution
+to pass through a location identified by the symbol
+\texttt{ompd\_dll\_locations\_valid}.
+This symbol must have external, \texttt{C}, linkage.
+
+Conceptually, \texttt{ompd\_dll\_locations\_valid} has the following
+signature:
 \begin{quote}
 \begin{lstlisting}
 void ompd_dll_locations_valid ( void );
 \end{lstlisting}
 \end{quote}
 \labeldef{dll-locations-valid:def}
+However, as noted in Section~\ref{structural-overview:sec},
+the event notification location does not need to be a function,
+and can instead be a labeled location in the code.
 
 \noindent
 The debugger can receive notification of this event by planting
-a breakpoint in this routine.
-\texttt{ompd\_dll\_locations\_valid()} has \texttt{C} linkage,
+a breakpoint at this location.
+\texttt{ompd\_dll\_locations\_valid} has \texttt{C} linkage,
 and the debugger will not apply name mangling before searching
 for this routine.
 In order to support debugging, the OpenMP runtime may need to collect
@@ -68,10 +77,10 @@ The OpenMP runtime will collect whatever information is necessary
 to support OMPD debugging if:
 \begin{enumerate}
 \item
-  the environment variable \texttt{OMP\_OMPD} is set to \texttt{on}
+  the environment variable \texttt{OMP\_DEBUG} is set to \texttt{on}
 \item
   the target calls the
-  \texttt{void omp\_ompd\_enable~(~void~)}\labeldef{ompd-enable:def}
+  \texttt{void omp\_debug\_enable~(~void~)}\labeldef{ompd-enable:def}
   function defined in the OpenMP runtime.
   This function may be called by the main executable, or any of the
   shared libraries the executable loads, and may be made in an
@@ -83,7 +92,7 @@ to support OMPD debugging if:
   \textbf{Rationale:}
   In some cases it may not be possible to control a target's
   environment.
-  \texttt{omp\_ompd\_enable} allows a target itself to turn on
+  \texttt{omp\_debug\_enable} allows a target itself to turn on
   data collection for OMPD.
   Allowing the function to be called from an initializer allows
   the call to be positioned in an otherwise empty DLL that the

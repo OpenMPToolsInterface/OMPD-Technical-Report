@@ -89,3 +89,10 @@ ompd_rc_t ompd_get_state (
 );
 \end{lstlisting}
 \end{quote}
+
+The states are represented by values of the enumeration type
+\refdef{\texttt{ompd\_state\_t}}{state-t:def}.
+The symbolic names of the members of \texttt{ompd\_state\_t} should
+match those of the OMPT enumeration type \texttt{omp\_state\_e}.
+However, there is no guarantee that the numeric values of the corresponding
+symbolic constants are identical.

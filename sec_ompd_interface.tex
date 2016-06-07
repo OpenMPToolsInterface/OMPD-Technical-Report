@@ -279,13 +279,15 @@ typedef enum {
 
 The OMPD runtime states mirror those in OMPT (see Appendix~A
 of~\cite{ompt-tr2}).
+Note that there is no guarantee that the numeric values of the
+corresponding members of the enumerations are identical.
 
 \begin{quote}
 \begin{lstlisting}
 typedef enum {
   /* work states (0..15) */
   ompd_state_work_serial           = 0x00,   /* working outside parallel */
-  ompd_state_work_paralle l        = 0x01,   /* working within parallel  */
+  ompd_state_work_parallel         = 0x01,   /* working within parallel  */
   ompd_state_work_reduction        = 0x02,   /* performing a reduction   */
 
   /* idle (16..31) */
@@ -304,8 +306,9 @@ typedef enum {
   ompd_state_wait_taskgroup        = 0x51,   /* waiting at a taskgroup   */
 
   /* mutex wait states (96..111) */
-  ompd_state_wait_lock             = 0x60,   /* waiting for lock         */
-  ompd_state_wait_nest_lock        = 0x61,   /* waiting for nest lock    */  
+  ompd_state_wait_mutex            = 0x60,   /* waiting for any mutex kind
+                                                                         */
+  ompd_state_wait_lock             = 0x61,   /* waiting for lock         */  
   ompd_state_wait_critical         = 0x62,   /* waiting for critical     */
   ompd_state_wait_atomic           = 0x63,   /* waiting for atomic       */
   ompd_state_wait_ordered          = 0x64,   /* waiting for ordered      */

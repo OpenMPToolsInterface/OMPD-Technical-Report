@@ -93,6 +93,62 @@ information about the state of each OpenMP thread.
 This includes support for OpenMP state, call frame,
 task and parallel region information.
 
+\subsection{Structural Overview}
+\label{structural-overview:sec}
+
+Figure~\ref{ompd-structural-overview:fig} shows how the different components
+fit together.
+The debugger loads the OMPD plugin that matches the OpenMP runtime
+being used by the target.
+The plugin exports the API defined in this document, which the debugger
+uses to get OpenMP information about the target.
+The OMPD plugin will need to look up the symbols,
+or read data out of the target.
+It does not do this directly, but instead asks the debugger to perform
+these operations for it using a callback interface exported by the debugger.
+This callback interface is also defined in this document
+(see Section~\ref{sec:ompd_data_types}).
+
+This architectural layout insulates the debugger from the details
+of the internal structure of the OpenMP runtime.
+Similarly, the OMPD plugin does not need to be concerned about
+how to access the target.
+Decoupling the plugin and debugger in this ways allows for
+great flexibility in how the target and tool are deployed,
+so that, for example, there is no requirement that debugger
+and target execute on the same machine.
+
+Generally the debugger does not interact directly with the OpenMP
+runtime in the target, and instead uses the OMPD plugin for this purpose.
+However, there are a few instances where the debugger does need
+to access the OpenMP runtime directly.
+These cases fall into two broad categories.
+The first is during initialization, where the debugger needs
+to be able to look up symbols and read variables in OpenMP runtime
+in order to identify the OPMP plugin it should use.
+This is discussed in Section~\ref{runtime-interface:sec}.
+
+The second category relates to arranging for the debugger to be notified
+when certain events occur during the execution of the OpenMP program.
+The model used for this purpose is that the OpenMP implementation
+is required to define certain symbols in the runtime code.
+Each of these symbols corresponds to an event type.
+The runtime must ensure that control passes through the appropriate
+named location when events occur.
+If the debugger wants to get notification of an event, it can plant
+a breakpoint at the matching location.
+
+The code locations can, but do not need to, be functions.
+They can, for example, simply be labels.
+However, the names must have external \texttt{C} linkage.
+
+\begin{figure}
+  \centering
+    \includegraphics[width=6.0in,natwidth=424.8,natheight=417.6]{figures/ompd-structural-overview.pdf}
+  \caption{OMPD: Structural overview}
+\label{ompd-structural-overview:fig}
+\end{figure}
+
 
 \subsection{Design Scope}
 \label{design-scope:sec}

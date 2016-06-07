@@ -14,9 +14,9 @@ for easy reference.
   \refdef{\texttt{ompd\_dll\_locations}}{dll-locations:def};
 \item
   The OpenMP must define
-  \refdef{\texttt{ompd\_dll\_locations\_valid~()}}{dll-locations-valid:def}
-  and call it once \texttt{ompd\_dll\_locations} is ready to be
-  read by the debugger;
+  \refdef{\texttt{ompd\_dll\_locations\_valid}}{dll-locations-valid:def}
+  and ensure that control flows through it once
+  \texttt{ompd\_dll\_locations} is ready to be read by the debugger;
 \item
   In order to support debugging, the OpenMP may need to collect and
   maintain information about a target's execution that, perhaps for
@@ -26,18 +26,18 @@ for easy reference.
   necessary to support OMPD:
   \begin{enumerate}
   \item
-    the environment variable \texttt{OMP\_OMPD} is set to \texttt{on};
+    the environment variable \texttt{OMP\_DEBUG} is set to \texttt{on};
   \item
     the \emph{target} calls
-    \refdef{\texttt{omp\_ompd\_enable~()}}{ompd-enable:def}
+    \refdef{\texttt{omp\_debug\_enable~()}}{ompd-enable:def}
 \begin{notes}
 ilaguna: should OMPD support any of the previous mechanisms or both of 
 them? From the text it's not clear.
 \end{notes}
   \end{enumerate}
 \item
-  The OpenMP must define the following routines and call them at the
-  times described in Section~\ref{breakpoint-locations:sec}:
+  The OpenMP must define the following code symbols, and execute through
+  them at the times described in Section~\ref{breakpoint-locations:sec}:
   \begin{description}
   \item [\texttt{ompd\_bp\_parallel\_begin}]
   \item [\texttt{ompd\_bp\_parallel\_end}]

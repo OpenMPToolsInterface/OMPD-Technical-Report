@@ -9,12 +9,14 @@ To help a debugger control the execution of an OpenMP program
 launching parallel regions or tasks,
 %%%% OMPD provides a routine that the debugger can invoke to 
 %%%% determine where to place breakpoints. 
-the OpenMP runtime must define a number of routines in which
+the OpenMP runtime must define a number of symbols at which
 the debugger may plant breakpoints to receive notification of
 particular events.
-The runtime is expected to call these routines when these events occur
-\emph{and} data collection for OMPD is
+The runtime is expected to execute through these locations when
+these events occur \emph{and} data collection for OMPD is
 enabled (see~\S\ref{runtime-interface:sec}).
+These locations may, but do not have to, be subroutines
+(see~\S\ref{structural-overview:sec}).
 
 \paragraph{Advice to implementors} The debugger needs to be able to detect 
 the beginning of OpenMP runtime code.
@@ -72,12 +74,12 @@ Bottom line: what we want to do about this `Advice to implementors'?
 
 \subsection{Parallel Regions}
 
-The OpenMP runtime must call \texttt{ompd\_bp\_parallel\_begin}
-when a new parallel region is launched.
-The call should  occur after a task encounters a parallel construct,
+The OpenMP runtime must execute through
+\texttt{ompd\_bp\_parallel\_begin} when a new parallel region is launched.
+This should occur after a task encounters a parallel construct,
 but before any implicit task starts to execute the parallel
 region's work.
-The type signature for \texttt{ompd\_bp\_parallel\_begin} is:
+Conceptually, the type signature for \texttt{ompd\_bp\_parallel\_begin} is:
 \begin{quote}
 \begin{lstlisting}
 void ompd_bp_parallel_begin ( void );
@@ -103,14 +105,18 @@ The task handle returned by
 will be that of the task encountering the parallel construct.
 The `reenter runtime' address in the information returned by
 \refdef{\texttt{ompd\_get\_task\_frame}}{get-task-frame:def}
-will be that of the stack frame where the thread entered the OpenMP
+will be that of the stack frame where the thread called the OpenMP
 runtime to handle the parallel construct.
 The `exit runtime' address will be for the stack frame where the thread
 left the OpenMP runtime to execute the user code that encountered
 the parallel construct.
 
-When a parallel region finishes, the OpenMP runtime will call
-the \texttt{ompd\_bp\_parallel\_end} routine:
+When a parallel region finishes, the OpenMP runtime will cause
+control to flow through
+the location \texttt{ompd\_bp\_parallel\_end}.
+Conceptually, \texttt{ompd\_bp\_parallel\_end} has this type
+signature, but as with other event notification locations 
+does not need to be a function:
 \begin{quote}
 \begin{lstlisting}
 void ompd_bp_parallel_end ( void );
@@ -128,7 +134,7 @@ parallel construct that initiated the parallel region just
 terminating.
 The `reenter runtime' address in the frame information returned by
 \refdef{\texttt{ompd\_get\_task\_frame}}{get-task-frame:def}
-will be that for the stack frame in which the thread entered the
+will be that for the stack frame in which the thread called the
 OpenMP runtime to start the parallel construct just terminating.
 The `exit runtime' address will refer to the stack frame where the
 thread left the OpenMP runtime to execute the user code that
@@ -237,14 +243,17 @@ and not once for each thread per region.
 \subsection{Task Regions}
 
 When starting a new task region, the OpenMP runtime system
-calls \texttt{ompd\_bp\_task\_begin}:
+must allow control to pass through \texttt{ompd\_bp\_task\_begin}.
+Conceptually, \texttt{ompd\_bp\_task\_end} has this type
+signature, but as with other event notification locations 
+does not need to be a function:
 \begin{quote}
 \begin{lstlisting}
 void ompd_bp_task_begin ( void );
 \end{lstlisting}
 \end{quote}
 \labeldef{bp-task-begin:def}
-The OpenMP runtime system will call this routine after the task
+The OpenMP runtime system will execute through this location after the task
 construct is encountered, but before the new explicit task starts.
 When the breakpoint is triggered the debugger can map the operating
 thread to an OpenMP handle using
@@ -256,7 +265,9 @@ from returned from
 \refdef{\texttt{ompd\_get\_task\_function}}{get-task-function:def}.
 
 When a task region completes, the OpenMP runtime system
-calls the \texttt{ompd\_bp\_task\_end} function:
+executes through the location \texttt{ompd\_bp\_task\_end}.
+If it is implemented as a subroutine, \texttt{ompd\_bp\_task\_end}
+has this signature:
 \begin{quote}
 \begin{lstlisting}
 void ompd_bp_task_end ( void );
