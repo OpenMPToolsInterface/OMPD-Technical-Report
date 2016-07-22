@@ -411,21 +411,63 @@ The task handle must be released by calling
 \refdef{\texttt{ompd\_release\_task\_handle}}{release-task-handle:def}.
 
 \paragraph{Retrieve the handle for an enclosing task.}
-The  debugger uses \verb|ompd_get_ancestor_task_region| to obtain
-a pointer to the task handle for the task region enclosing the
-task region specified by \verb|task_handle|.
+The OMPD API includes operations to obtain the handle of the
+parent of a task represented by a given task handle.
+There are two notions of parenthood.
+The \emph{scheduling} parent task is the task that was active
+when the child task was scheduled to run.
+The \emph{generating} is the task that encountered the OpenMP
+that caused the child task to be created.
+
+The generating and scheduling parents need not be the same.
+This might happen if the thread executing a task encounters
+an OpenMP construct.
+When this happens, the thread will enter the runtime.
+The runtime will set up the tasks to implement the OpenMP program
+construct, and then call its schedular to choose a task to
+execute.
+If the scheduler chooses a task other than one of these newly
+created tasks to run, the scheduling parent of the selected task
+will not be the same as its generating parent.
+The former is the task that the thread was executing most recently,
+and from which it entered the runtime.
+The later is the task which encountered the OpenMP construct
+it is executing.
+
+The  debugger uses \verb|ompd_get_generating_ancestor_task_region| to obtain
+a pointer to the task handle for the task that encountered the OpenMP
+construct which caused the task represented by \verb|task_handle|
+to be created.
 This call is meaningful only if the thread executing the task specified by
 \verb|task_handle|  is stopped.
 \begin{quote}
 \begin{lstlisting}
-ompd_rc_t  ompd_get_ancestor_task_region (
+ompd_rc_t  ompd_get_generating_ancestor_task_region (
   ompd_task_handle_t         *task_handle,                          /* IN */
   ompd_task_handle_t        **parent_task_handle                   /* OUT */
 );
 \end{lstlisting}
 \end{quote}
-\labeldef{get-ancestor-task-region:def}
-The task handle must be released by calling
+\labeldef{get-generating-ancestor-task-region:def}
+
+The \verb|ompd_get_scheduling_ancestor_task_region| returns the
+scheduling parent of the task represented \verb|task_handle|.
+The scheduling parent task is the OpenMP task that was active when
+the child task was scheduled.
+
+This call is meaningful only if the thread executing the task specified by
+\verb|task_handle|  is stopped.
+\begin{quote}
+\begin{lstlisting}
+ompd_rc_t  ompd_get_scheduling_ancestor_task_region (
+  ompd_task_handle_t         *task_handle,                          /* IN */
+  ompd_task_handle_t        **parent_task_handle                   /* OUT */
+);
+\end{lstlisting}
+\end{quote}
+\labeldef{get-scheduling-ancestor-task-region:def}
+
+The parent task handle must be released by calling
 \refdef{\texttt{ompd\_release\_task\_handle}}{release-task-handle:def}.
  
 \paragraph{Retrieve implicit task handle for a parallel region.}

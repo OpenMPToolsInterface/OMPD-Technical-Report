@@ -269,7 +269,7 @@ JVD: Follows John Mellor-Crummey's
 semantics of the \verb|reenter_runtime_addr| field.)
 \end{notes}
 %
-The debugger can unwind a thread's logical stack by getting the
+The debugger can unwind a thread's stack by getting the
 thread's current task using
 \refdef{\texttt{ompd\_get\_top\_task\_region}}{get-top-task-region:def}.
 \begin{notes}
@@ -280,12 +280,10 @@ handle. Is that correct?
 Using the task handle, the debugger can find the thread's exit and
 reentry stack frame addresses using \texttt{ompd\_get\_task\_frame}.
 %
-It can then use
-\refdef{\texttt{ompd\_get\_ancestor\_task\_region}}{get-ancestor-task-region:def}
-to find the task's parent region, and then call \verb|ompd_get_task_frame|
-for the parent task.
+It can then use \refdef{\texttt{ompd\_get\_scheduling\_ancestor\_task\_region}}{get-scheduling-ancestor-task-region:def} to find the next task in the
+thread's stack, and then call \verb|ompd_get_task_frame| for the parent task.
 %
-The frames between the parent task's reenter address and the top
+The frames between the scheduling parent task's reenter address and the top
 task's exit address are frames in which the thread is executing OpenMP
 runtime code.
 \begin{notes}
@@ -298,6 +296,11 @@ means \emph{exclusive} of the frame addresses.
 This process can be repeated to allow all frames in the thread's
 backtrace that correspond to execution in the OpenMP runtime to be
 identified.
-%
+
+Using the generating ancestor operation \refdef{\texttt{ompd\_get\_generating\_ancestor\_task\_region}}{get-generating-ancestor-task-region:def},
+the same process can be used to determine the chain logical ancestors.
+Note that in this case the logical backtrace may traverse
+across the stacks of different threads.
+
 The position within the stack frame where the runtime addresses point
 is implementation defined.
